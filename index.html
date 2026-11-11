@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#151225"><title>Portal Market</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#100e1c;--panel:#1c1930;--muted:#a9a2c2;--accent:#a78bfa;--line:#302a49}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -10%,#39265e 0,#100e1c 48%);color:#f8f6ff;font:15px system-ui,sans-serif}
+main{max-width:680px;margin:auto;padding:20px 16px 100px}.top{display:flex;justify-content:space-between;align-items:center;margin:8px 0 22px}
+.logo{font-weight:900;letter-spacing:1.5px;font-size:21px}.tag{color:#c4b5fd;font-size:11px;letter-spacing:2px;margin-top:4px}
+.pill{background:#292342;border:1px solid #453968;border-radius:20px;padding:8px 11px;font-size:12px;color:#ddd6fe}
+h1{font-size:25px;margin:0 0 5px}.sub{color:var(--muted);margin:0 0 20px}
+.tabs{display:flex;gap:8px;margin:18px 0}.tab{border:1px solid var(--line);background:var(--panel);color:#ddd6fe;border-radius:12px;padding:10px 13px;flex:1}
+.tab.active{background:#59428a;border-color:#8b6bd1;color:white}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card{background:linear-gradient(150deg,#26213c,#191629);border:1px solid var(--line);border-radius:18px;padding:11px;overflow:hidden}
+.art{height:135px;border-radius:12px;background:linear-gradient(135deg,#3d2b65,#19172b);display:grid;place-items:center;font-size:48px}
+.art img{width:100%;height:100%;object-fit:cover;border-radius:12px}
+.card h3{font-size:15px;margin:11px 0 4px}.desc{font-size:12px;color:var(--muted);min-height:32px}
+.price{font-weight:800;color:#d8c7ff;margin:10px 0}
+button{cursor:pointer;font:inherit}.buy,.primary{width:100%;border:0;border-radius:12px;padding:11px;background:linear-gradient(90deg,#8b5cf6,#6d4ac2);color:white;font-weight:700}
+.panel{background:var(--panel);border:1px solid var(--line);padding:16px;border-radius:17px;margin:12px 0}
+.muted{color:var(--muted)}.order{padding:12px 0;border-bottom:1px solid var(--line)}.order:last-child{border:0}
+.empty{text-align:center;padding:38px 12px;color:var(--muted);grid-column:1/-1}
+.hidden{display:none}.notice{padding:12px;border-radius:12px;background:#302748;color:#e9ddff;margin:12px 0;font-size:13px}
+footer{position:fixed;bottom:0;left:0;right:0;background:#141123ee;backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:10px max(16px,calc((100vw - 648px)/2));display:flex;gap:8px}
+footer button{flex:1;background:transparent;border:0;color:#bdb4d8;padding:8px 2px;font-size:12px}footer button.active{color:#d8c7ff}
+</style>
+</head>
+<body>
+<main>
+ <header class="top"><div><div class="logo">✦ PORTAL MARKET</div><div class="tag">DIGITAL COLLECTIBLES</div></div><div class="pill" id="balance">Баланс: —</div></header>
+ <section id="shop">
+  <h1>NFT-маркет</h1><p class="sub">Выбирай свой следующий цифровой предмет</p>
+  <div id="products" class="grid"><div class="empty">Загружаем каталог…</div></div>
+ </section>
+ <section id="profile" class="hidden"><h1>Профиль</h1><p class="sub">Твой аккаунт Portal Market</p><div class="panel" id="profileBox">Загрузка…</div></section>
+ <section id="orders" class="hidden"><h1>Мои заказы</h1><p class="sub">История покупок и заявок</p><div class="panel" id="ordersBox">Загрузка…</div></section>
+ <div id="toast" class="notice hidden"></div>
+</main>
+<footer>
+ <button class="active" data-tab="shop">💎<br>Магазин</button>
+ <button data-tab="orders">📦<br>Заказы</button>
+ <button data-tab="profile">👤<br>Профиль</button>
+</footer>
+<script>
+const tg=window.Telegram?.WebApp;
+tg?.ready();tg?.expand();
+const initData=tg?.initData||"";
+const headers={"X-Telegram-Init-Data":initData,"Content-Type":"application/json"};
+const $=id=>document.getElementById(id);
+function toast(s){$("toast").textContent=s;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),3500)}
+async function api(path,opts={}){const r=await fetch(path,{...opts,headers:{...headers,...opts.headers}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw Error(d.detail||"Ошибка запроса");return d}
+function tab(name){["shop","profile","orders"].forEach(x=>$(x).classList.toggle("hidden",x!==name));document.querySelectorAll("footer button").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));if(name==="profile")loadMe();if(name==="orders")loadOrders()}
+document.querySelectorAll("footer button").forEach(b=>b.onclick=()=>tab(b.dataset.tab));
+async function loadProducts(){try{const items=await api("/api/products");$("products").innerHTML=items.length?items.map(p=>`<article class="card"><div class="art">${p.image_url?`<img src="${esc(p.image_url)}" alt="">`:"💎"}</div><h3>${esc(p.title)}</h3><div class="desc">${esc(p.description||"Цифровой коллекционный предмет")}</div><div class="price">${p.price.toLocaleString("ru-RU")} ⭐</div><button class="buy" onclick="buy(${p.id})">Оформить</button></article>`).join(""):'<div class="empty">Пока нет доступных NFT</div>'}catch(e){$("products").innerHTML='<div class="empty">Открой магазин из кнопки в боте ShuzaGram, чтобы авторизоваться.</div>'}}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+async function buy(id){if(!initData){toast("Открой магазин через ShuzaGram");return}if(!confirm("Создать заявку на этот NFT?"))return;try{const r=await api("/api/orders/"+id,{method:"POST"});toast("Заявка №"+r.order_id+" создана. Ожидает подтверждения оплаты.");loadProducts()}catch(e){toast(e.message)}}
+async function loadMe(){try{const u=await api("/api/me");$("balance").textContent="Баланс: "+u.balance+" ⭐";$("profileBox").innerHTML=`<b>${esc(u.username?"@"+u.username:"Пользователь")}</b><p class="muted">ID: ${u.user_id}</p><h2>${u.balance} ⭐</h2><span class="muted">Внутренний баланс</span>`}catch(e){$("profileBox").textContent=e.message}}
+async function loadOrders(){try{const a=await api("/api/orders");$("ordersBox").innerHTML=a.length?a.map(o=>`<div class="order"><b>Заказ #${o.id}</b><br>${esc(o.title)}<br><span class="muted">${o.price} ⭐ · ${esc(o.status)}</span></div>`).join(""):"Пока заказов нет"}catch(e){$("ordersBox").textContent=e.message}}
+loadProducts();if(initData)loadMe();
+</script>
+</body></html>
