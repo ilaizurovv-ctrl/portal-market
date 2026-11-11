@@ -1,4 +1,4 @@
-import os, sqlite3, hashlib, hmac, secrets, time
+import os, sqlite3, hashlib, hmac, secrets, time, json, base64, urllib.parse, urllib.request, urllib.error
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header
@@ -14,9 +14,11 @@ app.mount("/static",StaticFiles(directory=BASE/"static"),name="static")
 def db():
  c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; c.execute("PRAGMA foreign_keys=ON"); return c
 with db() as c:
- c.executescript("""CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY,username TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,display_name TEXT NOT NULL,created_at INTEGER NOT NULL);
+ c.executescript("""CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY,username TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,display_name TEXT NOT NULL,created_at INTEGER NOT NULL,phone TEXT UNIQUE);
  CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY,sender_id INTEGER NOT NULL REFERENCES users(id),recipient_id INTEGER NOT NULL REFERENCES users(id),body TEXT NOT NULL,created_at INTEGER NOT NULL);
  CREATE INDEX IF NOT EXISTS msg_pair ON messages(sender_id,recipient_id,id);""")
+ cols={r["name"] for r in c.execute("PRAGMA table_info(users)")}
+ if "phone" not in cols: c.execute("ALTER TABLE users ADD COLUMN phone TEXT")
 def hp(p,s=None):
  s=s or secrets.token_bytes(16); return s.hex()+"$"+hashlib.pbkdf2_hmac("sha256",p.encode(),s,210000).hex()
 def check(p,v):
@@ -37,10 +39,19 @@ def user(auth):
  with db() as c:r=c.execute("SELECT id,username,display_name FROM users WHERE id=?",(i,)).fetchone()
  if not r: raise HTTPException(401,"Пользователь не найден")
  return dict(r)
-class Auth(BaseModel):
+class LoginAuth(BaseModel):
  username:str=Field(min_length=3,max_length=24,pattern=r"^[a-zA-Z0-9_]+$")
  password:str=Field(min_length=8,max_length=128)
- display_name:str=Field(default="",max_length=40)
+class RegisterAuth(BaseModel):
+ username:str=Field(min_length=3,max_length=24,pattern=r"^[a-zA-Z0-9_]+$")
+ password:str=Field(min_length=8,max_length=128)
+ display_name:str=Field(min_length=1,max_length=40)
+ phone:str=Field(min_length=8,max_length=16,pattern=r"^\+[1-9][0-9]{7,14}$")
+ verification_token:str=Field(min_length=20,max_length=512)
+class PhoneInput(BaseModel):
+ phone:str=Field(min_length=8,max_length=16,pattern=r"^\+[1-9][0-9]{7,14}$")
+class PhoneCheck(PhoneInput):
+ code:str=Field(min_length=4,max_length=10)
 class Msg(BaseModel):
  recipient:str=Field(min_length=3,max_length=24)
  body:str=Field(min_length=1,max_length=4000)
@@ -48,15 +59,48 @@ class Msg(BaseModel):
 def home():return FileResponse(BASE/"static"/"index.html")
 @app.get("/health")
 def health():return {"ok":True,"service":"Losgram"}
-@app.post("/api/register")
-def register(x:Auth):
- n=x.username.lower(); name=x.display_name.strip() or n
+def twilio_request(path, data):
+ sid=os.getenv("TWILIO_ACCOUNT_SID",""); auth=os.getenv("TWILIO_AUTH_TOKEN","")
+ service=os.getenv("TWILIO_VERIFY_SERVICE_SID","")
+ if not sid or not auth or not service: raise HTTPException(503,"SMS пока не настроены. Добавьте данные Twilio в Render.")
+ url="https://verify.twilio.com/v2/Services/"+urllib.parse.quote(service,safe="")+"/"+path
+ req=urllib.request.Request(url,data=urllib.parse.urlencode(data).encode(),headers={"Authorization":"Basic "+base64.b64encode((sid+":"+auth).encode()).decode(),"Content-Type":"application/x-www-form-urlencoded"})
  try:
-  with db() as c:i=c.execute("INSERT INTO users(username,password_hash,display_name,created_at) VALUES(?,?,?,?)",(n,hp(x.password),name,int(time.time()))).lastrowid
- except sqlite3.IntegrityError:raise HTTPException(409,"Имя пользователя уже занято")
+  with urllib.request.urlopen(req,timeout=12) as response:return json.loads(response.read().decode())
+ except urllib.error.HTTPError as e:
+  try: detail=json.loads(e.read().decode()).get("message","Не удалось выполнить SMS-проверку")
+  except: detail="Не удалось выполнить SMS-проверку"
+  raise HTTPException(e.code if e.code in (400,401,404,429) else 502,detail)
+ except Exception: raise HTTPException(502,"Сервис SMS временно недоступен")
+def phone_proof(phone, expires):
+ payload=f"{phone}:{expires}"
+ sig=hmac.new(SECRET.encode(),payload.encode(),hashlib.sha256).hexdigest()
+ return payload+":"+sig
+def valid_phone_proof(phone, proof):
+ try:
+  p,exp,sig=proof.rsplit(":",2); payload=p+":"+exp
+  return p==phone and int(exp)>=time.time() and hmac.compare_digest(sig,hmac.new(SECRET.encode(),payload.encode(),hashlib.sha256).hexdigest())
+ except:return False
+@app.post("/api/phone/send")
+def send_phone_code(x:PhoneInput):
+ result=twilio_request("Verifications",{"To":x.phone,"Channel":"sms"})
+ return {"status":result.get("status","pending")}
+@app.post("/api/phone/check")
+def check_phone_code(x:PhoneCheck):
+ result=twilio_request("VerificationCheck",{"To":x.phone,"Code":x.code})
+ if result.get("status")!="approved": raise HTTPException(400,"Код неверный или срок его действия истёк")
+ return {"verification_token":phone_proof(x.phone,int(time.time())+600)}
+@app.post("/api/register")
+def register(x:RegisterAuth):
+ if not SECRET: raise HTTPException(503,"На сервере не настроен LOS_GRAM_SECRET")
+ if not valid_phone_proof(x.phone,x.verification_token): raise HTTPException(403,"Сначала подтвердите номер телефона")
+ n=x.username.lower(); name=x.display_name.strip()
+ try:
+  with db() as c:i=c.execute("INSERT INTO users(username,password_hash,display_name,created_at,phone) VALUES(?,?,?,?,?)",(n,hp(x.password),name,int(time.time()),x.phone)).lastrowid
+ except sqlite3.IntegrityError:raise HTTPException(409,"Имя пользователя или номер телефона уже зарегистрирован")
  return {"token":token(i),"user":{"id":i,"username":n,"display_name":name}}
 @app.post("/api/login")
-def login(x:Auth):
+def login(x:LoginAuth):
  with db() as c:r=c.execute("SELECT * FROM users WHERE username=?",(x.username.lower(),)).fetchone()
  if not r or not check(x.password,r["password_hash"]):raise HTTPException(401,"Неверный логин или пароль")
  return {"token":token(r["id"]),"user":{"id":r["id"],"username":r["username"],"display_name":r["display_name"]}}
