@@ -1,8 +1,8 @@
 import os, json, hmac, hashlib, sqlite3, time
 from pathlib import Path
+from urllib.parse import parse_qsl
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 BASE = Path(__file__).parent
@@ -17,6 +17,7 @@ def db():
     return con
 
 def init_db():
+    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     with db() as con:
         con.executescript("""
         CREATE TABLE IF NOT EXISTS products(
@@ -51,18 +52,17 @@ def verify_init_data(init_data: str):
     if not BOT_TOKEN:
         raise HTTPException(503, "На сервере не задан SHUZA_TOKEN")
     try:
-        pairs = dict(item.split("=", 1) for item in init_data.split("&") if "=" in item)
+        pairs = dict(parse_qsl(init_data, keep_blank_values=True))
         received_hash = pairs.pop("hash")
         auth_date = int(pairs.get("auth_date", "0"))
-        if abs(time.time() - auth_date) > 86400:
+        if time.time() - auth_date > 86400 or auth_date > time.time() + 60:
             raise ValueError("Срок авторизации истёк")
-        data_check = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
+        data_check = "\\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
         secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
         calculated = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(calculated, received_hash):
             raise ValueError("Неверная подпись")
-        user = json.loads(pairs["user"])
-        return user
+        return json.loads(pairs["user"])
     except Exception:
         raise HTTPException(401, "Не удалось подтвердить пользователя через Web App")
 
@@ -86,6 +86,10 @@ class ProductIn(BaseModel):
 @app.on_event("startup")
 def startup():
     init_db()
+
+@app.get("/health")
+def health():
+    return {"ok": True, "service": "Portal Market"}
 
 @app.get("/api/products")
 def products():
@@ -122,14 +126,12 @@ def create_order(product_id: int, user=Depends(current_user)):
           (product_id,)).fetchone()
         if not product:
             raise HTTPException(404, "Товар уже недоступен")
-        # Заказ создаётся как ожидающий оплаты/подтверждения.
-        # Баланс не списывается: платёжный провайдер ещё не подключён.
         con.execute("UPDATE products SET stock=stock-1 WHERE id=? AND stock>0", (product_id,))
         cur = con.execute(
           "INSERT INTO orders(user_id,product_id,price,status,created_at) VALUES(?,?,?,?,?)",
           (uid, product_id, product["price"], "pending", int(time.time())))
         return {"order_id": cur.lastrowid, "status": "pending",
-                "message": "Заявка создана. Ожидает подтверждения оплаты."}
+                "message": "Заявка создана. Оплата пока не подключена."}
 
 @app.get("/api/admin/products")
 def admin_products(user=Depends(admin_user)):
@@ -162,8 +164,6 @@ def delete_product(product_id: int, user=Depends(admin_user)):
             raise HTTPException(404, "Товар не найден")
         return {"ok": True}
 
-app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
-
 @app.get("/")
 def index():
-    return FileResponse(BASE / "static" / "index.html")
+    return FileResponse(BASE / "index.html")
