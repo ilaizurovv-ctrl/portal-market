@@ -6,11 +6,11 @@ WEBAPP_URL = "https://YOUR-PUBLIC-DOMAIN/"
 
 async def open_market(update, context):
     keyboard = [[InlineKeyboardButton(
-        "🌌 Открыть Portal Market",
+        "🌌 Открыть PORTALS.COM",
         web_app=WebAppInfo(url=WEBAPP_URL)
     )]]
     await update.message.reply_text(
-        "Добро пожаловать в Portal Market!",
+        "Добро пожаловать в PORTALS.COM!",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
