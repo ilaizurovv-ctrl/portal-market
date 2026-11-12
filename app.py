@@ -190,13 +190,12 @@ async def shuzagram_webhook(request: Request):
                 if len(parts) == 2 and all(p.isdigit() for p in parts) and int(parts[1]) > 0:
                     target, amount = map(int, parts)
                     with db() as con:
-                        con.execute("CREATE TABLE IF NOT EXISTS star_balances(user_id INTEGER PRIMARY KEY, stars INTEGER NOT NULL DEFAULT 0)")
-                        con.execute("INSERT OR IGNORE INTO star_balances(user_id,stars) VALUES(?,0)", (target,))
+                        con.execute("INSERT OR IGNORE INTO users(user_id,username,balance) VALUES(?, '', 0)", (target,))
                         delta = amount if action == "give" else -amount
-                        con.execute("UPDATE star_balances SET stars=MAX(0,stars+?) WHERE user_id=?", (delta,target))
-                        balance = con.execute("SELECT stars FROM star_balances WHERE user_id=?", (target,)).fetchone()["stars"]
+                        con.execute("UPDATE users SET balance=MAX(0,balance+?) WHERE user_id=?", (delta,target))
+                        balance = con.execute("SELECT balance FROM users WHERE user_id=?", (target,)).fetchone()["balance"]
                         con.execute("DELETE FROM admin_states WHERE admin_id=?", (uid,))
-                    shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": f"Баланс пользователя {target}: 🌟 {balance}. Это внутренний баланс бота."})
+                    shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": f"Баланс пользователя {target} обновлён: 🌟 {balance}. Баланс синхронизирован с сайтом."})
                 else:
                     shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": "Формат: ID количество"})
                 return {"ok": True}
