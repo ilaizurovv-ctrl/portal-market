@@ -1,7 +1,7 @@
 import os, json, hmac, hashlib, sqlite3, time
 from pathlib import Path
 from urllib.parse import parse_qsl
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -86,6 +86,7 @@ class ProductIn(BaseModel):
 @app.on_event("startup")
 def startup():
     init_db()
+    register_telegram_webhook()
 
 
 
@@ -95,6 +96,52 @@ import urllib.request
 import urllib.error
 
 SHUZAGRAM_BOT_TOKEN = os.getenv("SHUZAGRAM_BOT_TOKEN", "")
+
+def telegram_call(method: str, payload: dict):
+    if not BOT_TOKEN:
+        raise RuntimeError("SHUZA_TOKEN is not configured")
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/{method}"
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=15) as response:
+        result = json.loads(response.read().decode("utf-8"))
+    if not result.get("ok"):
+        raise RuntimeError("Telegram Bot API request failed")
+    return result.get("result")
+
+def register_telegram_webhook():
+    public_url = os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+    if BOT_TOKEN and public_url:
+        try:
+            telegram_call("setWebhook", {
+                "url": public_url + "/telegram/webhook",
+                "allowed_updates": ["message"],
+                "drop_pending_updates": False
+            })
+        except Exception:
+            # The app remains available; webhook can be registered after correcting bot config.
+            pass
+
+@app.post("/telegram/webhook")
+async def telegram_webhook(request: Request):
+    update = await request.json()
+    message = update.get("message") or {}
+    chat = message.get("chat") or {}
+    text_value = (message.get("text") or "").strip()
+    if chat.get("id") and text_value.split(" ", 1)[0].split("@", 1)[0] == "/start":
+        telegram_call("sendMessage", {
+            "chat_id": chat["id"],
+            "text": "Добро пожаловать в PORTALS.COM! 🎁\\nОткрой маркетплейс и выбирай цифровые коллекционные подарки.",
+            "reply_markup": {
+                "inline_keyboard": [[{
+                    "text": "🚀 Открыть PORTALS.COM",
+                    "web_app": {"url": "https://portal-market.onrender.com"}
+                }]]
+            }
+        })
+    return {"ok": True}
+
+
 
 def shuzagram_bot_call(method: str, params=None):
     if not SHUZAGRAM_BOT_TOKEN:
