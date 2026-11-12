@@ -89,7 +89,7 @@ with db() as c:
  if "phone" not in cols: c.execute("ALTER TABLE users ADD COLUMN phone TEXT")
  if "virtual_number" not in cols: c.execute("ALTER TABLE users ADD COLUMN virtual_number TEXT")
  c.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_virtual_number ON users(virtual_number)")
- c.execute("CREATE TABLE IF NOT EXISTS virtual_codes(id INTEGER PRIMARY KEY,virtual_number TEXT NOT NULL UNIQUE,code_hash TEXT NOT NULL,expires_at INTEGER NOT NULL,created_at INTEGER NOT NULL)")
+ c.execute("CREATE TABLE IF NOT EXISTS virtual_codes(virtual_number TEXT PRIMARY KEY,code_hash TEXT NOT NULL,expires_at INTEGER NOT NULL,created_at INTEGER NOT NULL)")
 def hp(p,s=None):
  s=s or secrets.token_bytes(16); return s.hex()+"$"+hashlib.pbkdf2_hmac("sha256",p.encode(),s,210000).hex()
 def check(p,v):
