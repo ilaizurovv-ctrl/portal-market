@@ -9,7 +9,7 @@ BASE = Path(__file__).parent
 DB_PATH = os.getenv("DATABASE_PATH", str(BASE / "portal_market.db"))
 BOT_TOKEN = os.getenv("SHUZA_TOKEN", "")
 ADMIN_IDS = {int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()}
-app = FastAPI(title="Portal Market API")
+app = FastAPI(title="PORTALS.COM API")
 
 def db():
     con = sqlite3.connect(DB_PATH)
@@ -57,7 +57,7 @@ def verify_init_data(init_data: str):
         auth_date = int(pairs.get("auth_date", "0"))
         if time.time() - auth_date > 86400 or auth_date > time.time() + 60:
             raise ValueError("Срок авторизации истёк")
-        data_check = "\\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
+        data_check = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
         secret = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
         calculated = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(calculated, received_hash):
@@ -89,7 +89,7 @@ def startup():
 
 @app.get("/health")
 def health():
-    return {"ok": True, "service": "Portal Market"}
+    return {"ok": True, "service": "PORTALS.COM"}
 
 @app.get("/api/products")
 def products():
