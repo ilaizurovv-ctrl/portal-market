@@ -205,3 +205,13 @@ body.compact-mode .person{min-height:70px!important;padding:7px 10px!important}
 body.compact-mode .person .avatar{width:54px!important;height:54px!important;flex-basis:54px!important}
 body.reduce-motion *,body.reduce-motion *:before,body.reduce-motion *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 @media(max-width:650px){.settings-section{margin:16px 0;padding:13px}.settings-row,.settings-toggle{min-height:58px}.settings-select{max-width:115px}}
+
+
+@media(max-width:650px){
+ .app.settings-open .side{display:none!important}
+ .app.settings-open .workspace{display:flex!important;order:2;width:100%;height:calc(100dvh - 76px - env(safe-area-inset-bottom));min-height:0;flex:1;flex-direction:column;padding-bottom:76px;box-sizing:border-box;background:#080808}
+ .app.settings-open .page{display:block!important;visibility:visible;overflow-y:auto;flex:1;width:100%;min-height:0;padding:22px 18px 100px;background:#080808;color:#f5f5f5;box-sizing:border-box}
+ .app.settings-open .page.hidden{display:none!important}
+ .app.settings-open .rail{display:grid!important;z-index:30}
+ .app.settings-open .rail .nav{display:flex!important}
+}
