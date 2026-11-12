@@ -171,6 +171,14 @@ def login_with_phone_code(x:PhoneCheck):
   r=c.execute("SELECT id,username,display_name FROM users WHERE phone=?",(x.phone,)).fetchone()
  if not r: raise HTTPException(404,"Аккаунт с этим номером не найден. Сначала зарегистрируйтесь.")
  return {"token":token(r["id"]),"user":{"id":r["id"],"username":r["username"],"display_name":r["display_name"]}}
+@app.post("/api/guest")
+def guest():
+ if not SECRET: raise HTTPException(503,"Сервис временно недоступен")
+ name="Гость"
+ n="guest_"+secrets.token_hex(8)
+ with db() as c:
+  i=c.execute("INSERT INTO users(username,password_hash,display_name,created_at) VALUES(?,?,?,?)",(n,hp(secrets.token_urlsafe(32)),name,int(time.time()))).lastrowid
+ return {"token":token(i),"user":{"id":i,"username":n,"display_name":name}}
 @app.post("/api/register")
 def register(x:RegisterAuth):
  if not SECRET: raise HTTPException(503,"На сервере не настроен LOS_GRAM_SECRET")
