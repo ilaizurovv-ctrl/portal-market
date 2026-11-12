@@ -4,6 +4,7 @@ services:
     runtime: docker
     region: frankfurt
     plan: free
+    branch: main
     dockerContext: losgram
     dockerfilePath: losgram/Dockerfile
     autoDeployTrigger: commit
