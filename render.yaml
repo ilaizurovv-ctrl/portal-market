@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: losgram
+    runtime: docker
+    region: frankfurt
+    plan: free
+    dockerContext: losgram
+    dockerfilePath: losgram/Dockerfile
+    autoDeployTrigger: commit
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: losgram-db
+          property: connectionString
+
+databases:
+  - name: losgram-db
+    plan: free
+    region: frankfurt
+    databaseName: losgram_db
+    user: losgram_db_user
+    postgresMajorVersion: "18"
