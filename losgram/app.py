@@ -24,7 +24,7 @@ class PgCursor:
   import re
   q=sql.strip()
   if q.upper().startswith("PRAGMA TABLE_INFO"):
-   table=re.search(r"\\(([^)]+)\\)",q).group(1).strip()
+   table=q[q.find("(")+1:q.rfind(")")].strip()
    self.cur.execute("SELECT column_name AS name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=%s ORDER BY ordinal_position",(table,))
    return self
   ignore=q.upper().startswith("INSERT OR IGNORE")
@@ -32,7 +32,7 @@ class PgCursor:
   q=q.replace("?","%s")
   if ignore: q += " ON CONFLICT DO NOTHING"
   else:
-   m=re.match(r"INSERT INTO (users|messages|chats|chat_messages|star_transactions)\\b",q,re.I)
+   m=re.match(r"INSERT INTO (users|messages|chats|chat_messages|star_transactions)\b",q,re.I)
    if m and " RETURNING " not in q.upper(): q += " RETURNING id"
   self.cur.execute(q,params)
   if q.upper().startswith("INSERT INTO") and " RETURNING ID" in q.upper():
