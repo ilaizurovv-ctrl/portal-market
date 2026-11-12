@@ -160,7 +160,7 @@ async def shuzagram_webhook(request: Request):
                     [{"text": "🚀 Открыть PORTALS.COM", "url": "https://portal-market.onrender.com"}],
                     [{"text": "➕ Пополнить", "url": "https://shuzagram.com/PortalsPlayer"}],
                     [{"text": "💸 Вывести", "callback_data": "withdraw_request"}],
-                    [{"text": "🛟 Поддержка", "url": "https://t.me/supportPotral"}]
+                    [{"text": "🛟 Поддержка", "url": "https://shuzagram.com/supprotPotral"}]
                 ]
             }
         })
