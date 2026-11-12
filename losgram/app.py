@@ -359,3 +359,54 @@ def chat_directory(authorization:Optional[str]=Header(default=None)):
    (SELECT COUNT(*) FROM chat_members WHERE chat_id=ch.id) AS members
    FROM chats ch WHERE ch.id<>1 AND ch.is_public=1 ORDER BY ch.id DESC LIMIT 100""").fetchall()
  return [dict(r) for r in rows]
+
+
+# Message controls: edit, delete and reactions for shared rooms.
+with db() as c:
+ c.executescript("""
+ CREATE TABLE IF NOT EXISTS chat_message_reactions(
+  message_id INTEGER NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  emoji TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY(message_id,user_id,emoji)
+ );
+ CREATE INDEX IF NOT EXISTS chat_reactions_message ON chat_message_reactions(message_id);
+ """)
+class MessageEdit(BaseModel):
+ body:str=Field(min_length=1,max_length=4000)
+class MessageReact(BaseModel):
+ emoji:str=Field(min_length=1,max_length=16)
+@app.patch("/api/chats/{chat_id}/messages/{message_id}")
+def edit_room_message(chat_id:int,message_id:int,x:MessageEdit,authorization:Optional[str]=Header(default=None)):
+ u=user(authorization); body=x.body.strip()
+ if not body:raise HTTPException(400,"Пустое сообщение")
+ with db() as c:
+  m=c.execute("SELECT sender_id FROM chat_messages WHERE id=? AND chat_id=?",(message_id,chat_id)).fetchone()
+  if not m:raise HTTPException(404,"Сообщение не найдено")
+  if m["sender_id"]!=u["id"]:raise HTTPException(403,"Можно менять только свои сообщения")
+  c.execute("UPDATE chat_messages SET body=? WHERE id=?",(body,message_id))
+ return {"ok":True}
+@app.delete("/api/chats/{chat_id}/messages/{message_id}")
+def delete_room_message(chat_id:int,message_id:int,authorization:Optional[str]=Header(default=None)):
+ u=user(authorization)
+ with db() as c:
+  m=c.execute("SELECT sender_id FROM chat_messages WHERE id=? AND chat_id=?",(message_id,chat_id)).fetchone()
+  if not m:raise HTTPException(404,"Сообщение не найдено")
+  if m["sender_id"]!=u["id"]:raise HTTPException(403,"Можно удалять только свои сообщения")
+  c.execute("DELETE FROM chat_messages WHERE id=?",(message_id,))
+ return {"ok":True}
+@app.post("/api/chats/{chat_id}/messages/{message_id}/reactions")
+def react_room_message(chat_id:int,message_id:int,x:MessageReact,authorization:Optional[str]=Header(default=None)):
+ u=user(authorization)
+ allowed={"👍","❤️","😂","🔥","👏","😮","😢","👎"}
+ if x.emoji not in allowed:raise HTTPException(400,"Эта реакция не поддерживается")
+ with db() as c:
+  member=c.execute("SELECT 1 FROM chat_members WHERE chat_id=? AND user_id=?",(chat_id,u["id"])).fetchone()
+  msg=c.execute("SELECT id FROM chat_messages WHERE id=? AND chat_id=?",(message_id,chat_id)).fetchone()
+  if not member or not msg:raise HTTPException(404,"Сообщение не найдено")
+  exists=c.execute("SELECT 1 FROM chat_message_reactions WHERE message_id=? AND user_id=? AND emoji=?",(message_id,u["id"],x.emoji)).fetchone()
+  if exists:c.execute("DELETE FROM chat_message_reactions WHERE message_id=? AND user_id=? AND emoji=?",(message_id,u["id"],x.emoji))
+  else:c.execute("INSERT INTO chat_message_reactions(message_id,user_id,emoji,created_at) VALUES(?,?,?,?)",(message_id,u["id"],x.emoji,int(time.time())))
+  rows=c.execute("SELECT emoji,COUNT(*) AS count FROM chat_message_reactions WHERE message_id=? GROUP BY emoji",(message_id,)).fetchall()
+ return {"reactions":[dict(z) for z in rows]}
