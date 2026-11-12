@@ -157,6 +157,21 @@ def check_phone_code(x:PhoneCheck):
  result=twilio_request("VerificationCheck",{"To":x.phone,"Code":x.code})
  if result.get("status")!="approved": raise HTTPException(400,"Код неверный или срок его действия истёк")
  return {"verification_token":phone_proof(x.phone,int(time.time())+600)}
+
+@app.post("/api/login/phone/send")
+def send_login_code(x:PhoneInput):
+ twilio_request("Verifications",{"To":x.phone,"Channel":"sms"})
+ return {"ok":True,"message":"Если номер зарегистрирован, код входа отправлен."}
+
+@app.post("/api/login/phone/check")
+def login_with_phone_code(x:PhoneCheck):
+ if not SECRET: raise HTTPException(503,"На сервере не настроен LOS_GRAM_SECRET")
+ result=twilio_request("VerificationCheck",{"To":x.phone,"Code":x.code})
+ if result.get("status")!="approved": raise HTTPException(400,"Неверный код или срок его действия истёк")
+ with db() as c:
+  r=c.execute("SELECT id,username,display_name FROM users WHERE phone=?",(x.phone,)).fetchone()
+ if not r: raise HTTPException(404,"Аккаунт с этим номером не найден. Сначала зарегистрируйтесь.")
+ return {"token":token(r["id"]),"user":{"id":r["id"],"username":r["username"],"display_name":r["display_name"]}}
 @app.post("/api/register")
 def register(x:RegisterAuth):
  if not SECRET: raise HTTPException(503,"На сервере не настроен LOS_GRAM_SECRET")
