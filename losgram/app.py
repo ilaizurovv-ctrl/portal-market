@@ -128,3 +128,154 @@ def send(x:Msg,authorization:Optional[str]=Header(default=None)):
   if not o:raise HTTPException(404,"Пользователь не найден")
   i=c.execute("INSERT INTO messages(sender_id,recipient_id,body,created_at) VALUES(?,?,?,?)",(u["id"],o["id"],x.body.strip(),int(time.time()))).lastrowid
  return {"id":i,"ok":True}
+
+
+# Shared rooms: one global chat, private groups, and public channels.
+with db() as c:
+ c.executescript("""
+ CREATE TABLE IF NOT EXISTS chats(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL CHECK(kind IN ('global','group','channel')),
+  title TEXT NOT NULL,
+  username TEXT UNIQUE,
+  owner_id INTEGER REFERENCES users(id),
+  is_public INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL
+ );
+ CREATE TABLE IF NOT EXISTS chat_members(
+  chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member',
+  joined_at INTEGER NOT NULL,
+  PRIMARY KEY(chat_id,user_id)
+ );
+ CREATE TABLE IF NOT EXISTS chat_messages(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+  sender_id INTEGER NOT NULL REFERENCES users(id),
+  body TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+ );
+ CREATE INDEX IF NOT EXISTS chat_messages_order ON chat_messages(chat_id,id);
+ CREATE INDEX IF NOT EXISTS chat_members_user ON chat_members(user_id,chat_id);
+ CREATE TABLE IF NOT EXISTS star_wallets(
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  balance INTEGER NOT NULL DEFAULT 0 CHECK(balance>=0)
+ );
+ CREATE TABLE IF NOT EXISTS star_transactions(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  amount INTEGER NOT NULL,
+  kind TEXT NOT NULL,
+  provider_ref TEXT UNIQUE,
+  created_at INTEGER NOT NULL
+ );
+ """)
+ c.execute("INSERT OR IGNORE INTO chats(id,kind,title,username,owner_id,is_public,created_at) VALUES(1,'global','Общий чат Losgram','losgram_all',NULL,1,?)",(int(time.time()),))
+
+class ChatCreate(BaseModel):
+ kind:str=Field(pattern=r"^(group|channel)$")
+ title:str=Field(min_length=2,max_length=60)
+ username:Optional[str]=Field(default=None,min_length=3,max_length=32,pattern=r"^[a-zA-Z0-9_]+$")
+ is_public:bool=True
+ members:list[str]=Field(default_factory=list,max_length=100)
+
+class ChatMessage(BaseModel):
+ body:str=Field(min_length=1,max_length=4000)
+
+class ChatAddMembers(BaseModel):
+ usernames:list[str]=Field(min_length=1,max_length=100)
+
+@app.get("/api/chats")
+def list_chats(authorization:Optional[str]=Header(default=None)):
+ u=user(authorization)
+ with db() as c:
+  c.execute("INSERT OR IGNORE INTO chat_members(chat_id,user_id,role,joined_at) VALUES(1,?,'member',?)",(u["id"],int(time.time())))
+  rows=c.execute("""
+   SELECT ch.id,ch.kind,ch.title,ch.username,ch.owner_id,ch.is_public,
+    COALESCE(cm.role,'member') AS role,
+    (SELECT body FROM chat_messages WHERE chat_id=ch.id ORDER BY id DESC LIMIT 1) AS last_message,
+    (SELECT created_at FROM chat_messages WHERE chat_id=ch.id ORDER BY id DESC LIMIT 1) AS last_at
+   FROM chats ch LEFT JOIN chat_members cm ON cm.chat_id=ch.id AND cm.user_id=?
+   WHERE ch.id=1 OR cm.user_id IS NOT NULL OR (ch.kind='channel' AND ch.is_public=1)
+   ORDER BY CASE WHEN ch.id=1 THEN 0 ELSE 1 END,ch.id DESC
+  """,(u["id"],)).fetchall()
+ return [dict(r) for r in rows]
+
+@app.post("/api/chats")
+def create_chat(x:ChatCreate,authorization:Optional[str]=Header(default=None)):
+ u=user(authorization); now=int(time.time())
+ slug=x.username.lower() if x.username else None
+ if slug=="losgram_all": raise HTTPException(409,"Это имя зарезервировано")
+ try:
+  with db() as c:
+   cur=c.execute("INSERT INTO chats(kind,title,username,owner_id,is_public,created_at) VALUES(?,?,?,?,?,?)",(x.kind,x.title.strip(),slug,u["id"],int(x.is_public),now))
+   cid=cur.lastrowid
+   c.execute("INSERT INTO chat_members(chat_id,user_id,role,joined_at) VALUES(?,?,'owner',?)",(cid,u["id"],now))
+   for name in x.members:
+    member=c.execute("SELECT id FROM users WHERE username=?",(name.lower(),)).fetchone()
+    if member:c.execute("INSERT OR IGNORE INTO chat_members(chat_id,user_id,role,joined_at) VALUES(?,?,'member',?)",(cid,member["id"],now))
+ except sqlite3.IntegrityError: raise HTTPException(409,"Такое имя группы или канала уже занято")
+ return {"id":cid,"kind":x.kind,"title":x.title.strip(),"username":slug}
+
+@app.post("/api/chats/{chat_id}/members")
+def add_chat_members(chat_id:int,x:ChatAddMembers,authorization:Optional[str]=Header(default=None)):
+ u=user(authorization); now=int(time.time())
+ with db() as c:
+  ch=c.execute("SELECT owner_id,kind FROM chats WHERE id=?",(chat_id,)).fetchone()
+  if not ch:raise HTTPException(404,"Чат не найден")
+  if ch["kind"]=="channel" and ch["owner_id"]!=u["id"]:raise HTTPException(403,"Добавлять подписчиков может владелец канала")
+  if ch["kind"]=="group":
+   member=c.execute("SELECT 1 FROM chat_members WHERE chat_id=? AND user_id=?",(chat_id,u["id"])).fetchone()
+   if not member:raise HTTPException(403,"Вы не состоите в этой группе")
+  added=[]
+  for name in x.usernames:
+   target=c.execute("SELECT id FROM users WHERE username=?",(name.lower(),)).fetchone()
+   if target:
+    c.execute("INSERT OR IGNORE INTO chat_members(chat_id,user_id,role,joined_at) VALUES(?,?,'member',?)",(chat_id,target["id"],now));added.append(name.lower())
+ return {"added":added}
+
+@app.get("/api/chats/{chat_id}/messages")
+def get_chat_messages(chat_id:int,after:int=0,authorization:Optional[str]=Header(default=None)):
+ u=user(authorization)
+ with db() as c:
+  ch=c.execute("SELECT kind,is_public FROM chats WHERE id=?",(chat_id,)).fetchone()
+  if not ch:raise HTTPException(404,"Чат не найден")
+  member=c.execute("SELECT 1 FROM chat_members WHERE chat_id=? AND user_id=?",(chat_id,u["id"])).fetchone()
+  if not member and not (ch["kind"]=="channel" and ch["is_public"]):raise HTTPException(403,"Нет доступа к этому чату")
+  rows=c.execute("""SELECT m.id,m.chat_id,m.sender_id,m.body,m.created_at,u.username,u.display_name
+   FROM chat_messages m JOIN users u ON u.id=m.sender_id
+   WHERE m.chat_id=? AND m.id>? ORDER BY m.id LIMIT 300""",(chat_id,after)).fetchall()
+ return [dict(r) for r in rows]
+
+@app.post("/api/chats/{chat_id}/messages")
+def post_chat_message(chat_id:int,x:ChatMessage,authorization:Optional[str]=Header(default=None)):
+ u=user(authorization); body=x.body.strip()
+ if not body:raise HTTPException(400,"Пустое сообщение")
+ with db() as c:
+  ch=c.execute("SELECT kind,is_public FROM chats WHERE id=?",(chat_id,)).fetchone()
+  if not ch:raise HTTPException(404,"Чат не найден")
+  member=c.execute("SELECT 1 FROM chat_members WHERE chat_id=? AND user_id=?",(chat_id,u["id"])).fetchone()
+  if not member:raise HTTPException(403,"Сначала вступите в чат или канал")
+  cur=c.execute("INSERT INTO chat_messages(chat_id,sender_id,body,created_at) VALUES(?,?,?,?)",(chat_id,u["id"],body,int(time.time())))
+  mid=cur.lastrowid
+ return {"id":mid,"ok":True}
+
+@app.post("/api/chats/{chat_id}/join")
+def join_chat(chat_id:int,authorization:Optional[str]=Header(default=None)):
+ u=user(authorization)
+ with db() as c:
+  ch=c.execute("SELECT kind,is_public FROM chats WHERE id=?",(chat_id,)).fetchone()
+  if not ch:raise HTTPException(404,"Чат не найден")
+  if not ch["is_public"]:raise HTTPException(403,"Это закрытый чат")
+  c.execute("INSERT OR IGNORE INTO chat_members(chat_id,user_id,role,joined_at) VALUES(?,?,'member',?)",(chat_id,u["id"],int(time.time())))
+ return {"ok":True}
+
+@app.get("/api/directory")
+def chat_directory(authorization:Optional[str]=Header(default=None)):
+ u=user(authorization)
+ with db() as c:
+  rows=c.execute("""SELECT ch.id,ch.kind,ch.title,ch.username,ch.owner_id,
+   (SELECT COUNT(*) FROM chat_members WHERE chat_id=ch.id) AS members
+   FROM chats ch WHERE ch.id<>1 AND ch.is_public=1 ORDER BY ch.id DESC LIMIT 100""").fetchall()
+ return [dict(r) for r in rows]
