@@ -78,3 +78,11 @@
  .chathead{background:#111}
  .composer{background:#111}
 }
+
+@media(max-width:650px){
+ .person{position:relative;padding-right:42px}
+ .chat-menu{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:32px;height:38px;display:grid;place-items:center;color:#85858d;font-size:22px;border-radius:10px}
+ .chat-menu:active{background:#333}
+ .archive-active .archive-icon{background:#2b8bd8;color:white}
+ .archive-row{cursor:pointer}
+}
