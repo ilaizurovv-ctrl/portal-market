@@ -1,0 +1,26 @@
+name: Losgram backend checks
+
+on:
+  pull_request:
+    paths:
+      - "losgram/**"
+      - ".github/workflows/losgram-check.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "losgram/**"
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r losgram/requirements.txt
+      - name: Compile backend
+        working-directory: losgram
+        run: python -m compileall -q app.py
