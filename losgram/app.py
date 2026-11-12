@@ -30,7 +30,7 @@ def token(uid):
 def uid(t):
  try:
   a,b,s=t.split(":"); p=a+":"+b
-  if not SECRET or not hmac.compare_digest(s,hmac.new(SECRET.encode(),p.encode(),hashlib.sha256).hexdigest()) or int(b)<time.time()-2592000:return None
+  if not SECRET or not hmac.compare_digest(s,hmac.new(SECRET.encode(),p.encode(),hashlib.sha256).hexdigest()) or int(b)<time.time()-31536000:return None
   return int(a)
  except:return None
 def user(auth):
