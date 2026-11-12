@@ -1,4 +1,4 @@
-# Portal Market — Web App
+# PORTALS.COM — ShuzaGram Mini App
 
 Мини-приложение NFT-магазина для открытия из ShuzaGram.
 
