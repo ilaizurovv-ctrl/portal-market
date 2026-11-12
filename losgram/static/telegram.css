@@ -149,3 +149,29 @@
  .rail .nav.active{background:#202020;border-radius:28px}
  .mobile-compose{right:22px;bottom:112px;width:58px;height:58px}
 }
+
+
+/* Final mobile chat-list proportions and controls */
+@media(max-width:650px){
+ .sidehead{grid-template-columns:52px minmax(0,1fr) 38px 28px!important}
+ .sidehead #new{display:none!important}
+ .sidehead .header-lock{grid-column:3}
+ .sidehead .header-more{grid-column:4}
+ .sidehead h2{min-width:0;overflow:hidden;text-overflow:ellipsis}
+ .search{background:#171717!important;color:#eee!important}
+ .archive-row{min-height:112px!important}
+ .archive-icon{box-shadow:none}
+ .person{min-height:104px!important;align-items:center}
+ .person .info{min-width:0;overflow:hidden}
+ .person .name,.person .preview{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .person .avatar{flex:0 0 82px!important;width:82px!important;height:82px!important}
+ .person .room-avatar{background:#fff!important;color:#111!important}
+ .row-meta{align-self:flex-start;margin-left:auto;display:flex;align-items:center;gap:6px;color:#aaa;font-size:12px;white-space:nowrap}
+ .row-meta time{font-variant-numeric:tabular-nums}
+ .pin{font-size:13px;color:#fff;background:#292929;border-radius:14px;padding:3px 7px}
+ .rail{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+ .rail .nav[data-page="calls"],.rail .nav[data-page="stars"]{display:none!important}
+ .mobile-compose{font-size:0!important}
+ .mobile-compose:before{content:"📷";font-size:23px}
+ .mobile-compose:after{content:"+";position:absolute;right:-7px;bottom:-7px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#3390ec;border:3px solid #080808;color:white;font-size:22px;font-weight:400}
+}
