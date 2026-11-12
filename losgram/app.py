@@ -108,11 +108,12 @@ def user(auth):
  if not r: raise HTTPException(401,"Пользователь не найден")
  return dict(r)
 class LoginAuth(BaseModel):
- display_name:str=Field(min_length=1,max_length=40)
+ username:str=Field(min_length=3,max_length=40)
  password:str=Field(min_length=8,max_length=128)
 class RegisterAuth(BaseModel):
- display_name:str=Field(min_length=1,max_length=40)
+ username:str=Field(min_length=3,max_length=24,pattern=r"^[a-zA-Z0-9_]+$")
  password:str=Field(min_length=8,max_length=128)
+ display_name:str=Field(min_length=1,max_length=40)
 class PhoneInput(BaseModel):
  phone:str=Field(min_length=8,max_length=16,pattern=r"^\+[1-9][0-9]{7,14}$")
 class PhoneCheck(PhoneInput):
@@ -173,22 +174,18 @@ def login_with_phone_code(x:PhoneCheck):
 @app.post("/api/register")
 def register(x:RegisterAuth):
  if not SECRET: raise HTTPException(503,"На сервере не настроен LOS_GRAM_SECRET")
- name=x.display_name.strip()
- if not name: raise HTTPException(422,"Введи имя")
- with db() as c:
-  exists=c.execute("SELECT id FROM users WHERE lower(trim(display_name))=lower(?)",(name,)).fetchone()
-  if exists: raise HTTPException(409,"Это имя уже занято. Выбери другое.")
-  n="user_"+secrets.token_hex(6)
-  try:
-   i=c.execute("INSERT INTO users(username,password_hash,display_name,created_at) VALUES(?,?,?,?)",(n,hp(x.password),name,int(time.time()))).lastrowid
-  except (sqlite3.IntegrityError, __import__("psycopg").IntegrityError if DATABASE_URL else sqlite3.IntegrityError):
-   raise HTTPException(409,"Не удалось создать аккаунт. Попробуй ещё раз.")
+ name=x.display_name.strip(); n=x.username.lower()
+ try:
+  with db() as c:i=c.execute("INSERT INTO users(username,password_hash,display_name,created_at) VALUES(?,?,?,?)",(n,hp(x.password),name,int(time.time()))).lastrowid
+ except (sqlite3.IntegrityError, __import__("psycopg").IntegrityError if DATABASE_URL else sqlite3.IntegrityError):
+  raise HTTPException(409,"Этот юзернейм уже занят. Придумай другой.")
  return {"token":token(i),"user":{"id":i,"username":n,"display_name":name}}
 @app.post("/api/login")
 def login(x:LoginAuth):
- name=x.display_name.strip()
- with db() as c:r=c.execute("SELECT * FROM users WHERE lower(trim(display_name))=lower(?)",(name,)).fetchone()
- if not r or not check(x.password,r["password_hash"]):raise HTTPException(401,"Неверное имя или пароль")
+ identity=x.username.strip().lstrip("@").lower()
+ with db() as c:
+  r=c.execute("SELECT * FROM users WHERE lower(username)=? OR lower(trim(display_name))=? ORDER BY CASE WHEN lower(username)=? THEN 0 ELSE 1 END LIMIT 1",(identity,identity,identity)).fetchone()
+ if not r or not check(x.password,r["password_hash"]):raise HTTPException(401,"Неверный юзернейм или пароль")
  return {"token":token(r["id"]),"user":{"id":r["id"],"username":r["username"],"display_name":r["display_name"]}}
 @app.get("/api/me")
 def me(authorization:Optional[str]=Header(default=None)):return user(authorization)
