@@ -1,0 +1,46 @@
+/* Telegram-inspired mobile shell for Losgram */
+@media(max-width:650px){
+ :root{--bg:#080808;--panel:#101010;--line:#242424;--muted:#8e8e96;--blue:#3390ec}
+ body{background:#080808;color:#f5f5f5}
+ .app{background:#080808;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+ .rail{order:3;position:fixed;z-index:20;left:0;right:0;bottom:0;height:76px;padding:7px 8px calc(7px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;background:rgba(16,16,16,.97);border-top:1px solid #262626;backdrop-filter:blur(18px)}
+ .rail .mark{display:none}
+ .rail .nav{width:100%;height:58px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:22px;color:#999;background:transparent}
+ .rail .nav:after{font-size:10px;font-weight:600;content:attr(title);line-height:1.2}
+ .rail .nav.active{background:transparent;color:#fff}
+ .rail .nav.active:before{color:#fff}
+ .rail .nav.bottom{margin:0}
+ .side{order:1;display:flex;width:100%;height:calc(100dvh - 76px - env(safe-area-inset-bottom));border:0;background:#080808}
+ .sidehead{padding:17px 18px 12px}
+ .sidehead h2{font-size:25px;font-weight:750;letter-spacing:-.5px}
+ .sidehead .icon{width:42px;height:42px;border-radius:50%;background:#202020}
+ .search{margin:0 14px 12px;padding:13px 16px;border:0;border-radius:24px;background:#1b1b1d;font-size:16px}
+ .tabs{padding:0 14px 9px;border-bottom:1px solid #1e1e1e}
+ .tab{font-size:14px}
+ .tab.active{background:#263a4d;color:#8fc7ff}
+ .list{padding:0 5px 14px}
+ .person{padding:11px 10px;border-radius:12px;gap:12px;min-height:76px}
+ .person:hover,.person.selected{background:#171717}
+ .avatar{width:54px;height:54px;border-radius:50%;background:#303030;font-size:18px}
+ .name{font-size:16px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .preview{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+ .workspace{order:2;display:none;height:100dvh;min-height:0;background:#080808}
+ .app.open .side{display:none}
+ .app.open .workspace{display:flex}
+ .app.open .rail{display:none}
+ .chathead{height:62px;flex:none;padding:0 10px;background:#111;border-bottom:1px solid #222}
+ .chathead .avatar{width:42px;height:42px}
+ .chatwho b{font-size:16px}
+ .chatwho small{color:#999}
+ .back{width:34px;color:#66b5ff}
+ .messages{background:#080808;padding:14px 10px 18px;gap:7px}
+ .bubble{max-width:88%;padding:9px 12px;background:#202020;border-radius:16px 16px 16px 5px;font-size:15px}
+ .bubble.mine{background:#244d70;border-radius:16px 16px 5px 16px}
+ .time{font-size:10px;color:#b7c7d6}
+ .composer{flex:none;padding:9px 10px calc(10px + env(safe-area-inset-bottom));background:#111;border-top:1px solid #242424}
+ .composer input{background:#202020;border:0;padding:13px 16px}
+ .send{background:#3390ec}
+ .page{padding:18px 16px;background:#080808}
+ .row{border-color:#262626}
+ .note{background:#172a3c;color:#a8d5ff}
+}
