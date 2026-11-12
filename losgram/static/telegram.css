@@ -116,3 +116,36 @@
  .side{background:#101820}
  .app{background:#101820}
 }
+
+
+/* Match the supplied Telegram reference: compact brand header and four-item bottom bar */
+@media(max-width:650px){
+ .sidehead{height:82px;grid-template-columns:52px minmax(0,1fr) 38px 28px;gap:8px;padding:10px 18px}
+ .sidehead h2{font-size:25px;font-weight:750;white-space:nowrap}
+ .brand-avatars{width:52px;height:52px;position:relative;display:flex;align-items:center}
+ .brand-avatars i{position:absolute;width:38px;height:38px;border-radius:50%;border:3px solid #080808;background:linear-gradient(145deg,#39a8e8,#246b9c);display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:800;color:white}
+ .brand-avatars i:nth-child(2){left:12px;background:linear-gradient(145deg,#1d967c,#275d75)}
+ .brand-avatars i:nth-child(3){left:24px;background:linear-gradient(145deg,#8056b8,#315b94)}
+ .sidehead .header-lock{grid-column:3;font-size:23px}
+ .sidehead .header-more{grid-column:4;font-size:24px}
+ .sidehead #new{display:none}
+ .search{height:48px;margin:8px 14px 13px;padding-left:18px;font-size:16px}
+ .tabs{display:none}
+ .archive-row{min-height:125px;padding:12px 17px;gap:14px;border:0}
+ .archive-icon{width:76px;height:76px;border-radius:50%;background:#fff;color:#080808;font-size:31px}
+ .archive-copy{gap:6px}
+ .archive-copy b{font-size:17px;font-weight:650}
+ .archive-copy small{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100vw - 145px)}
+ .archive-arrow{display:none}
+ .list{padding:0 5px 18px}
+ .person{min-height:106px;padding:12px 10px;gap:14px;border:0}
+ .person .avatar{width:82px;height:82px;background:#fff;color:#090909;font-size:25px}
+ .person .name{font-size:17px;font-weight:650}
+ .person .preview{font-size:15px;margin-top:7px}
+ .chat-menu{display:none}
+ .rail{height:92px;grid-template-columns:repeat(4,minmax(0,1fr));padding:7px 16px calc(8px + env(safe-area-inset-bottom));border-radius:34px 34px 0 0;background:rgba(10,10,10,.97);left:20px;right:20px;bottom:6px;border:1px solid #202020;box-shadow:0 -8px 30px #0008}
+ .rail .nav{height:74px;font-size:25px}
+ .rail .nav:after{font-size:12px;bottom:5px}
+ .rail .nav.active{background:#202020;border-radius:28px}
+ .mobile-compose{right:22px;bottom:112px;width:58px;height:58px}
+}
