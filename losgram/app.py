@@ -113,8 +113,6 @@ class RegisterAuth(BaseModel):
  username:str=Field(min_length=3,max_length=24,pattern=r"^[a-zA-Z0-9_]+$")
  password:str=Field(min_length=8,max_length=128)
  display_name:str=Field(min_length=1,max_length=40)
- phone:str=Field(min_length=8,max_length=16,pattern=r"^\+[1-9][0-9]{7,14}$")
- verification_token:str=Field(min_length=20,max_length=512)
 class PhoneInput(BaseModel):
  phone:str=Field(min_length=8,max_length=16,pattern=r"^\+[1-9][0-9]{7,14}$")
 class PhoneCheck(PhoneInput):
@@ -175,11 +173,10 @@ def login_with_phone_code(x:PhoneCheck):
 @app.post("/api/register")
 def register(x:RegisterAuth):
  if not SECRET: raise HTTPException(503,"На сервере не настроен LOS_GRAM_SECRET")
- if not valid_phone_proof(x.phone,x.verification_token): raise HTTPException(403,"Сначала подтвердите номер телефона")
  n=x.username.lower(); name=x.display_name.strip()
  try:
-  with db() as c:i=c.execute("INSERT INTO users(username,password_hash,display_name,created_at,phone) VALUES(?,?,?,?,?)",(n,hp(x.password),name,int(time.time()),x.phone)).lastrowid
- except (sqlite3.IntegrityError, __import__("psycopg").IntegrityError if DATABASE_URL else sqlite3.IntegrityError):raise HTTPException(409,"Имя пользователя или номер телефона уже зарегистрирован")
+  with db() as c:i=c.execute("INSERT INTO users(username,password_hash,display_name,created_at) VALUES(?,?,?,?)",(n,hp(x.password),name,int(time.time()))).lastrowid
+ except (sqlite3.IntegrityError, __import__("psycopg").IntegrityError if DATABASE_URL else sqlite3.IntegrityError):raise HTTPException(409,"Это имя пользователя уже занято")
  return {"token":token(i),"user":{"id":i,"username":n,"display_name":name}}
 @app.post("/api/login")
 def login(x:LoginAuth):
