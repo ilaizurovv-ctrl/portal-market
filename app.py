@@ -115,6 +115,7 @@ def admin_menu(chat_id):
     shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": "🛠 Админ-панель", "reply_markup": {"inline_keyboard": [
         [{"text": "📋 Заявки на вывод", "callback_data": "admin_requests"}],
         [{"text": "➕ Выдать 🌟", "callback_data": "admin_give"}, {"text": "➖ Забрать 🌟", "callback_data": "admin_take"}],
+        [{"text": "📊 Статистика", "callback_data": "admin_stats"}],
         [{"text": "📣 Рассылка", "callback_data": "admin_broadcast"}]
     ]}})
 
@@ -157,6 +158,45 @@ async def shuzagram_webhook(request: Request):
                     shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": "📭 Заявок нет."})
                 for row in rows:
                     shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": f"Заявка №{row['id']} от @{row['username']} (ID {row['user_id']})", "reply_markup": {"inline_keyboard": [[{"text": "✅ Одобрить", "callback_data": f"admin_ok_{row['id']}"}, {"text": "❌ Отклонить", "callback_data": f"admin_no_{row['id']}"}]]}})
+            elif data == "admin_stats" or data.startswith("admin_stats_page_"):
+                page = int(data.rsplit("_", 1)[1]) if data.startswith("admin_stats_page_") else 0
+                page_size = 25
+                with db() as con:
+                    con.execute("CREATE TABLE IF NOT EXISTS bot_users(user_id INTEGER PRIMARY KEY)")
+                    total = con.execute("""
+                        SELECT COUNT(*) FROM (
+                            SELECT user_id FROM users
+                            UNION
+                            SELECT user_id FROM bot_users
+                        )
+                    """).fetchone()[0]
+                    rows = con.execute("""
+                        SELECT all_users.user_id,
+                               COALESCE(users.username, '') AS username,
+                               COALESCE(users.balance, 0) AS balance
+                        FROM (
+                            SELECT user_id FROM users
+                            UNION
+                            SELECT user_id FROM bot_users
+                        ) AS all_users
+                        LEFT JOIN users ON users.user_id = all_users.user_id
+                        ORDER BY all_users.user_id DESC
+                        LIMIT ? OFFSET ?
+                    """, (page_size, page * page_size)).fetchall()
+                lines = [f"📊 Пользователи: {total}", f"Страница {page + 1}", ""]
+                if rows:
+                    for row in rows:
+                        username = f"@{row['username']}" if row["username"] else "без username"
+                        lines.append(f"ID: {row['user_id']} | {username} | 🌟 {row['balance']}")
+                else:
+                    lines.append("Пользователей пока нет.")
+                nav = []
+                if page > 0:
+                    nav.append({"text": "⬅️ Назад", "callback_data": f"admin_stats_page_{page - 1}"})
+                if (page + 1) * page_size < total:
+                    nav.append({"text": "Вперёд ➡️", "callback_data": f"admin_stats_page_{page + 1}"})
+                markup = {"inline_keyboard": [nav]} if nav else {"inline_keyboard": []}
+                shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": "\\n".join(lines), "reply_markup": markup})
             elif data in ("admin_give", "admin_take", "admin_broadcast"):
                 action = data.replace("admin_", "")
                 with db() as con:
