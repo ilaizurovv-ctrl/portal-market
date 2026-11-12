@@ -7,21 +7,21 @@
 <title>PORTALS.COM — Digital Collectibles</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-:root{color-scheme:dark;--bg:#141414;--card:#222;--muted:#77777d;--blue:#1689f9;--line:#303030}
+:root{color-scheme:dark;--bg:#101114;--card:#1b1d22;--muted:#858a96;--blue:#1689f9;--line:#2b2e35}
 *{box-sizing:border-box}html{background:var(--bg)}body{margin:0;background:var(--bg);color:#f7f7f7;font:15px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
 button,input{font:inherit}button{cursor:pointer;color:inherit}main{width:100%;max-width:760px;margin:auto;padding:16px 16px 112px}
 .top{height:58px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.menu,.gram,.coin,.round{border:0;border-radius:28px;background:#242424;padding:12px 17px}.gram{background:#172b3c;font-weight:750;font-size:18px}.coin{background:#40351b;color:#ffbd21;font-weight:800}
-.banner{height:176px;border-radius:42px;overflow:hidden;background:radial-gradient(ellipse at 80% 80%,#7b176d 0,transparent 43%),linear-gradient(110deg,#130a2c,#27084a 60%,#16082b);padding:18px 20px;position:relative;margin:10px 0 22px}
+.banner{height:176px;border-radius:26px;overflow:hidden;background:radial-gradient(ellipse at 80% 80%,#7b176d 0,transparent 43%),linear-gradient(110deg,#130a2c,#27084a 60%,#16082b);padding:18px 20px;position:relative;margin:10px 0 22px}
 .banner:after{content:"🌆　✨　🏙️";position:absolute;right:0;bottom:8px;font-size:34px;opacity:.55}.banner h1{font-size:clamp(27px,7vw,48px);line-height:1.03;margin:0;max-width:70%;font-weight:850;letter-spacing:-1.5px}.timer{display:inline-block;background:#fa4c91;border-radius:22px;padding:4px 14px;font-size:21px;font-weight:850;margin-top:15px;box-shadow:0 0 16px #fa4c91aa}
 .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 20px}.cat{border:0;background:transparent;color:#555;text-align:center;font-weight:700;font-size:14px;padding:0 2px}.cat .ico{height:76px;width:76px;max-width:100%;border-radius:27px;background:#202020;display:grid;place-items:center;margin:0 auto 8px;font-size:32px}.cat.active{color:white}.cat.active .ico{background:#393939}
 .searchrow{display:flex;gap:9px;align-items:center;margin:0 0 14px}.search{min-width:0;flex:1;border:2px solid #292929;background:#1c1c1c;border-radius:35px;padding:14px 18px;color:white;font-size:17px;outline:none}.round{width:66px;height:66px;padding:0;background:#383838;font-size:24px;border:1px solid #454545}
 .filters{display:flex;align-items:center;gap:8px;overflow:auto;padding-bottom:8px;margin-bottom:28px;scrollbar-width:none}.filters button{white-space:nowrap;border:1px solid #303030;background:#1d1d1d;border-radius:28px;padding:13px 18px;font-size:16px;font-weight:700}.filters button.selected{background:#303030}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.product{background:#222;border:1px solid #303030;border-radius:40px;padding:10px 10px 12px;overflow:hidden;min-width:0}
-.art{height:auto;aspect-ratio:1/1;border-radius:31px;background:linear-gradient(145deg,#aa7b2b,#65451e);position:relative;display:grid;place-items:center;overflow:hidden}
+.product{background:#222;border:1px solid #303030;border-radius:24px;padding:9px 9px 12px;overflow:hidden;min-width:0}
+.art{height:auto;aspect-ratio:1/1;border-radius:18px;background:linear-gradient(145deg,#aa7b2b,#65451e);position:relative;display:grid;place-items:center;overflow:hidden}
 .art img{width:100%;height:100%;object-fit:cover}.art .emoji{font-size:clamp(62px,18vw,105px);filter:drop-shadow(0 8px 5px #0006)}
 .stamps{position:absolute;top:12px;left:12px;display:flex;gap:8px}.stamp{width:44px;height:44px;border-radius:50%;background:#8bc34a;color:white;display:grid;place-items:center;font-size:21px}.stamp.purple{background:#9560a6}
-.product h3{font-size:clamp(17px,4.5vw,25px);line-height:1.15;margin:14px 5px 3px;font-weight:650;overflow-wrap:anywhere}.serial{color:#85858b;font-size:16px;margin:0 5px 13px}
+.product h3{font-size:clamp(16px,4vw,22px);line-height:1.15;margin:12px 5px 3px;font-weight:650;overflow-wrap:anywhere}.serial{color:#85858b;font-size:16px;margin:0 5px 13px}
 .buyrow{display:flex;gap:7px;align-items:center}.buy{flex:1;min-width:0;background:var(--blue);border:0;border-radius:32px;padding:13px 7px;font-size:clamp(15px,4.5vw,23px);font-weight:800;white-space:nowrap}.basket{width:65px;height:65px;border-radius:50%;border:0;background:#3b3b3b;font-size:25px}
 .empty{grid-column:1/-1;text-align:center;color:#85858b;padding:45px 10px}
 .hidden{display:none!important}
@@ -30,7 +30,7 @@ button,input{font:inherit}button{cursor:pointer;color:inherit}main{width:100%;ma
 .tiles{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;margin:20px 0}.tile{border-radius:38px;min-height:220px;padding:22px 14px;text-align:center;background:linear-gradient(145deg,#202c24,#14251b);display:flex;flex-direction:column;justify-content:space-between}.tile.blue{background:linear-gradient(145deg,#1b2c36,#17232a)}.tile b{font-size:22px}.tile .apr{color:#00d34e;font-size:20px;font-weight:800}.tile.blue .apr{color:#26b7ff}
 .referral{background:#242424;border-radius:34px;padding:22px;margin:18px 0}.referral h2{font-size:23px;margin:0 0 8px}.referral p{color:#888;margin:0}.primary{width:100%;border:0;border-radius:30px;background:var(--blue);padding:17px;font-size:21px;font-weight:800}
 .panel{background:#222;border-radius:28px;padding:20px;margin:12px 0}.order{padding:13px 0;border-bottom:1px solid #383838}.muted{color:#888}
-footer{position:fixed;z-index:5;bottom:12px;left:50%;transform:translateX(-50%);width:min(92%,680px);border:1px solid #7775;border-radius:45px;background:#282828d9;backdrop-filter:blur(18px);display:flex;justify-content:space-around;align-items:center;padding:8px 5px;box-shadow:0 5px 24px #0008}
+footer{position:fixed;z-index:5;bottom:12px;left:50%;transform:translateX(-50%);width:min(92%,680px);border:1px solid #7775;border-radius:26px;background:#1b1d22ed;backdrop-filter:blur(18px);display:flex;justify-content:space-around;align-items:center;padding:8px 5px;box-shadow:0 5px 24px #0008}
 footer button{flex:1;border:0;background:transparent;color:#aaa;border-radius:35px;padding:8px 2px;font-size:12px;font-weight:700}footer button.active{background:#414141;color:#1689ff;box-shadow:0 0 0 2px #7775;font-size:14px}footer .navico{display:block;font-size:26px;line-height:1.2}
 .modal{position:fixed;inset:0;z-index:12;background:#000b;display:grid;place-items:center;padding:18px}.modal-card{width:min(100%,460px);background:#252525;border-radius:28px;padding:16px}.modal-actions{display:flex;gap:10px;margin-top:14px}.modal-actions button{flex:1;border:0;border-radius:24px;padding:14px;background:#444;color:white}.modal-actions .buy{background:#1689f9}.toast{position:fixed;z-index:9;left:16px;right:16px;bottom:100px;background:#333;padding:14px 18px;border-radius:18px;text-align:center;box-shadow:0 5px 20px #0009}
 @media(min-width:600px){main{padding-left:24px;padding-right:24px}.art{max-height:310px}.product{padding:14px}.banner{height:190px}}
@@ -40,8 +40,8 @@ footer button{flex:1;border:0;background:transparent;color:#aaa;border-radius:35
 <main>
  <header class="top"><button class="menu" onclick="showToast('Меню PORTALS.COM')">☰</button><div class="gram">◆　<span id="gram">0 GRAM</span></div></header>
  <section id="shop">
-  <div class="coin">✦　0</div>
-  <div class="banner"><h1>PORTALS<br>COLLECTIBLES</h1><div class="timer">6:17:17:06</div></div>
+  <div class="coin">◆　0 GRAM</div>
+  <div class="banner"><h1>GIFT<br>MARKET</h1><div class="timer">COLLECT • TRADE • DISCOVER</div></div>
   <div class="tabs">
    <button class="cat active" data-category="all"><span class="ico">🎁</span>Все</button>
    <button class="cat" data-category="collections"><span class="ico">🧸</span>Коллекции</button>
