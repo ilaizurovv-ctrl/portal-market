@@ -87,6 +87,9 @@ with db() as c:
  CREATE INDEX IF NOT EXISTS msg_pair ON messages(sender_id,recipient_id,id);""")
  cols={r["name"] for r in c.execute("PRAGMA table_info(users)")}
  if "phone" not in cols: c.execute("ALTER TABLE users ADD COLUMN phone TEXT")
+ if "virtual_number" not in cols: c.execute("ALTER TABLE users ADD COLUMN virtual_number TEXT")
+ c.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_virtual_number ON users(virtual_number)")
+ c.execute("CREATE TABLE IF NOT EXISTS virtual_codes(id INTEGER PRIMARY KEY,virtual_number TEXT NOT NULL UNIQUE,code_hash TEXT NOT NULL,expires_at INTEGER NOT NULL,created_at INTEGER NOT NULL)")
 def hp(p,s=None):
  s=s or secrets.token_bytes(16); return s.hex()+"$"+hashlib.pbkdf2_hmac("sha256",p.encode(),s,210000).hex()
 def check(p,v):
@@ -104,7 +107,7 @@ def uid(t):
 def user(auth):
  i=uid(auth.removeprefix("Bearer ").strip() if auth else "")
  if not i: raise HTTPException(401,"Войдите в Losgram")
- with db() as c:r=c.execute("SELECT id,username,display_name FROM users WHERE id=?",(i,)).fetchone()
+ with db() as c:r=c.execute("SELECT id,username,display_name,virtual_number FROM users WHERE id=?",(i,)).fetchone()
  if not r: raise HTTPException(401,"Пользователь не найден")
  return dict(r)
 class LoginAuth(BaseModel):
@@ -114,6 +117,53 @@ class RegisterAuth(BaseModel):
  username:str=Field(min_length=3,max_length=24,pattern=r"^[a-zA-Z0-9_]+$")
  password:str=Field(min_length=8,max_length=128)
  display_name:str=Field(min_length=1,max_length=40)
+class VirtualStart(BaseModel):
+ display_name:str=Field(min_length=1,max_length=40)
+ username:str=Field(min_length=3,max_length=24,pattern=r"^[a-zA-Z0-9_]+$")
+ password:str=Field(min_length=8,max_length=128)
+class VirtualVerify(BaseModel):
+ virtual_number:str=Field(min_length=8,max_length=24)
+ code:str=Field(min_length=6,max_length=6,pattern=r"^[0-9]{6}$")
+ display_name:str=Field(min_length=1,max_length=40)
+ username:str=Field(min_length=3,max_length=24,pattern=r"^[a-zA-Z0-9_]+$")
+ password:str=Field(min_length=8,max_length=128)
+class VirtualLogin(BaseModel):
+ virtual_number:str=Field(min_length=8,max_length=24)
+ password:str=Field(min_length=8,max_length=128)
+@app.post("/api/virtual/start")
+def virtual_start(x:VirtualStart):
+ if not SECRET: raise HTTPException(503,"Сервис временно недоступен")
+ username=x.username.lower()
+ with db() as c:
+  if c.execute("SELECT 1 FROM users WHERE username=?",(username,)).fetchone(): raise HTTPException(409,"Этот юзернейм уже занят")
+  number=None
+  for _ in range(10):
+   candidate="LS-"+str(secrets.randbelow(900)+100)+"-"+str(secrets.randbelow(900)+100)+"-"+str(secrets.randbelow(900)+100)
+   if not c.execute("SELECT 1 FROM users WHERE virtual_number=?",(candidate,)).fetchone() and not c.execute("SELECT 1 FROM virtual_codes WHERE virtual_number=?",(candidate,)).fetchone():
+    number=candidate;break
+  if not number: raise HTTPException(503,"Не удалось выдать номер. Попробуйте ещё раз.")
+  code=f"{secrets.randbelow(1000000):06d}"
+  c.execute("INSERT INTO virtual_codes(virtual_number,code_hash,expires_at,created_at) VALUES(?,?,?,?)",(number,hp(code),int(time.time())+600,int(time.time())))
+ return {"virtual_number":number,"code":code,"expires_in":600,"bot_message":"Ваш код подтверждения Losgram"}
+@app.post("/api/virtual/verify")
+def virtual_verify(x:VirtualVerify):
+ if not SECRET: raise HTTPException(503,"Сервис временно недоступен")
+ number=x.virtual_number.strip().upper(); username=x.username.lower()
+ with db() as c:
+  pending=c.execute("SELECT code_hash,expires_at FROM virtual_codes WHERE virtual_number=?",(number,)).fetchone()
+  if not pending or int(pending["expires_at"])<time.time(): raise HTTPException(400,"Срок кода истёк. Начните регистрацию заново.")
+  if not check(x.code,pending["code_hash"]): raise HTTPException(400,"Неверный код подтверждения")
+  if c.execute("SELECT 1 FROM users WHERE username=?",(username,)).fetchone(): raise HTTPException(409,"Этот юзернейм уже занят")
+  cur=c.execute("INSERT INTO users(username,password_hash,display_name,created_at,virtual_number) VALUES(?,?,?,?,?)",(username,hp(x.password),x.display_name.strip(),int(time.time()),number))
+  user_id=cur.lastrowid
+  c.execute("DELETE FROM virtual_codes WHERE virtual_number=?",(number,))
+ return {"token":token(user_id),"user":{"id":user_id,"username":username,"display_name":x.display_name.strip(),"virtual_number":number}}
+@app.post("/api/virtual/login")
+def virtual_login(x:VirtualLogin):
+ number=x.virtual_number.strip().upper()
+ with db() as c:r=c.execute("SELECT id,username,display_name,password_hash,virtual_number FROM users WHERE virtual_number=?",(number,)).fetchone()
+ if not r or not check(x.password,r["password_hash"]): raise HTTPException(401,"Неверный виртуальный номер или пароль")
+ return {"token":token(r["id"]),"user":{"id":r["id"],"username":r["username"],"display_name":r["display_name"],"virtual_number":r["virtual_number"]}}
 class PhoneInput(BaseModel):
  phone:str=Field(min_length=8,max_length=16,pattern=r"^\+[1-9][0-9]{7,14}$")
 class PhoneCheck(PhoneInput):
