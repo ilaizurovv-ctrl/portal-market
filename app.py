@@ -37,6 +37,11 @@ def init_db():
           price INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
           created_at INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS withdrawal_requests(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL, username TEXT DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'pending', created_at INTEGER NOT NULL
+        );
         """)
         count = con.execute("SELECT COUNT(*) FROM products").fetchone()[0]
         if count == 0:
@@ -110,17 +115,52 @@ def register_shuzagram_webhook():
 async def shuzagram_webhook(request: Request):
     update = await request.json()
     message = update.get("message") or {}
+    callback = update.get("callback_query") or {}
+
+    # Inline-button actions
+    if callback:
+        data = callback.get("data", "")
+        sender = callback.get("from") or {}
+        chat = (callback.get("message") or {}).get("chat") or {}
+        chat_id = chat.get("id") or sender.get("id")
+        if data == "withdraw_request" and chat_id:
+            user_id = int(sender.get("id") or chat_id)
+            username = sender.get("username") or sender.get("first_name") or "без имени"
+            with db() as con:
+                cur = con.execute(
+                    "INSERT INTO withdrawal_requests(user_id,username,created_at) VALUES(?,?,?)",
+                    (user_id, username, int(time.time()))
+                )
+                request_id = cur.lastrowid
+            shuzagram_bot_call("answerCallbackQuery", {
+                "callback_query_id": callback.get("id"),
+                "text": "Заявка создана"
+            })
+            shuzagram_bot_call("sendMessage", {
+                "chat_id": chat_id,
+                "text": f"✅ Заявка на вывод №{request_id} отправлена администрации. Мы свяжемся с вами."
+            })
+            admin_text = (
+                f"💸 Новая заявка на вывод №{request_id}\\n"
+                f"Пользователь: @{username} (ID: {user_id})\\n"
+                f"Статус: ожидает рассмотрения"
+            )
+            for admin_id in ADMIN_IDS:
+                shuzagram_bot_call("sendMessage", {"chat_id": admin_id, "text": admin_text})
+        return {"ok": True}
+
     chat = message.get("chat") or {}
     text_value = (message.get("text") or "").strip()
     if chat.get("id") and text_value.split(" ", 1)[0].split("@", 1)[0] == "/start":
         shuzagram_bot_call("sendMessage", {
             "chat_id": chat["id"],
-            "text": "Добро пожаловать в PORTALS.COM! 🎁\\nОткрой маркетплейс цифровых подарков.",
+            "text": "Добро пожаловать в PORTALS.COM! 🎁\\nВыберите действие:",
             "reply_markup": {
-                "inline_keyboard": [[{
-                    "text": "🚀 Открыть PORTALS.COM",
-                    "url": "https://portal-market.onrender.com"
-                }]]
+                "inline_keyboard": [
+                    [{"text": "🚀 Открыть PORTALS.COM", "url": "https://portal-market.onrender.com"}],
+                    [{"text": "➕ Пополнить", "url": "https://shuzagram.com/PortalsPlayer"}],
+                    [{"text": "💸 Вывести", "callback_data": "withdraw_request"}]
+                ]
             }
         })
     return {"ok": True}
