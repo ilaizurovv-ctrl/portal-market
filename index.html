@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#141414">
-<title>Portal Market</title>
+<title>PORTALS.COM — Digital Collectibles</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 :root{color-scheme:dark;--bg:#141414;--card:#222;--muted:#77777d;--blue:#1689f9;--line:#303030}
@@ -38,10 +38,10 @@ footer button{flex:1;border:0;background:transparent;color:#aaa;border-radius:35
 </head>
 <body>
 <main>
- <header class="top"><button class="menu" onclick="showToast('Меню Portal Market')">☰</button><div class="gram">◆　<span id="gram">0 GRAM</span></div></header>
+ <header class="top"><button class="menu" onclick="showToast('Меню PORTALS.COM')">☰</button><div class="gram">◆　<span id="gram">0 GRAM</span></div></header>
  <section id="shop">
   <div class="coin">✦　0</div>
-  <div class="banner"><h1>Grand Theft<br>Tournament</h1><div class="timer">6:17:17:06</div></div>
+  <div class="banner"><h1>PORTALS<br>COLLECTIBLES</h1><div class="timer">6:17:17:06</div></div>
   <div class="tabs">
    <button class="cat active" data-category="all"><span class="ico">🎁</span>Все</button>
    <button class="cat" data-category="collections"><span class="ico">🧸</span>Коллекции</button>
@@ -53,7 +53,7 @@ footer button{flex:1;border:0;background:transparent;color:#aaa;border-radius:35
   <div id="products" class="grid"><div class="empty">Загружаем каталог…</div></div>
  </section>
  <section id="profile" class="hidden">
-  <div class="top"><button class="menu" onclick="showToast('Меню Portal Market')">☰</button><div class="gram">◆　0 GRAM</div></div>
+  <div class="top"><button class="menu" onclick="showToast('Меню PORTALS.COM')">☰</button><div class="gram">◆　0 GRAM</div></div>
   <div class="tiles"><div class="tile"><div>🎁</div><b>Стейкинг<br>гивтов</b><div class="apr">26% APR</div></div><div class="tile blue"><div>◆</div><b>Стейкинг GRAM</b><div class="apr">12% APR</div></div></div>
   <div class="panel">
    <div class="profile-head" style="margin:0"><div class="avatar" id="avatar">👤</div><div><div class="user" id="username">Пользователь</div><div class="rank">#1000+ ✦</div></div><div class="inventory"><small>Инвентарь</small><strong>0 🎁　›</strong></div></div>
@@ -87,7 +87,7 @@ $("search").addEventListener("input",renderProducts);
 const filterButtons=document.querySelectorAll(".filters button");filterButtons[0].onclick=resetFilters;filterButtons[1].onclick=cycleSort;filterButtons[2].onclick=()=>{const q=prompt("Название коллекции");if(q!==null){$("search").value=q;renderProducts()}};filterButtons[3].onclick=()=>{const q=prompt("Название модели");if(q!==null){$("search").value=q;renderProducts()}};const searchTools=document.querySelectorAll(".searchrow .round");searchTools[0].onclick=()=>{const q=prompt("Поиск");if(q!==null){$("search").value=q;renderProducts()}};searchTools[1].onclick=()=>{compactView=!compactView;$("products").style.gridTemplateColumns=compactView?"1fr":"repeat(2,minmax(0,1fr))";showToast(compactView?"Список":"Сетка")};searchTools[2].onclick=cycleSort;
 function categoryMatch(p){const v=(String(p.category||p.type||"")+" "+p.title+" "+p.description).toLowerCase();if(category==="all")return true;if(category==="stars")return /star|звезд|звёзд/i.test(v);if(category==="craft")return /craft|крафт|инструмент/i.test(v);return /collection|коллекц|gift|подар/i.test(v)}
 function renderProducts(){const q=$("search").value.trim().toLowerCase();let items=catalog.filter(p=>(!q||(p.title+" "+p.description).toLowerCase().includes(q))&&categoryMatch(p));items.sort((a,b)=>sortMode==="cheap"?Number(a.price)-Number(b.price):sortMode==="expensive"?Number(b.price)-Number(a.price):Number(b.id)-Number(a.id));$("products").innerHTML=items.length?items.map(p=>`<article class="product" onclick="openDetail(${p.id})"><div class="art" style="background:${artColor(p.id)}">${p.image_url?`<img src="${esc(p.image_url)}" alt="">`:`<span class="emoji">🎁</span>`}<div class="stamps"><span class="stamp">✿</span><span class="stamp purple">⚒</span></div></div><h3>${esc(p.title)}</h3><div class="serial">#${String(p.id).padStart(6,"0")}</div><div class="buyrow"><button class="buy" onclick="event.stopPropagation();buy(${p.id})">${Number(p.price).toLocaleString("ru-RU")} ◆</button><button class="basket" onclick="event.stopPropagation();buy(${p.id})">♜</button></div></article>`).join(""):`<div class="empty">По этому запросу ничего не найдено</div>`}
-function openDetail(id){const p=catalog.find(x=>Number(x.id)===Number(id));if(!p)return;$("detailCard").innerHTML=`<div class="art">${p.image_url?`<img src="${esc(p.image_url)}">`:"🎁"}</div><h2>${esc(p.title)}</h2><p>${esc(p.description||"Цифровой подарок Portal Market")}</p><b>${Number(p.price).toLocaleString("ru-RU")} ◆</b><div class="modal-actions"><button onclick="closeDetail()">Закрыть</button><button class="buy" onclick="closeDetail();buy(${p.id})">Купить</button></div>`;$("detailModal").classList.remove("hidden")}
+function openDetail(id){const p=catalog.find(x=>Number(x.id)===Number(id));if(!p)return;$("detailCard").innerHTML=`<div class="art">${p.image_url?`<img src="${esc(p.image_url)}">`:"🎁"}</div><h2>${esc(p.title)}</h2><p>${esc(p.description||"Цифровой подарок PORTALS.COM")}</p><b>${Number(p.price).toLocaleString("ru-RU")} ◆</b><div class="modal-actions"><button onclick="closeDetail()">Закрыть</button><button class="buy" onclick="closeDetail();buy(${p.id})">Купить</button></div>`;$("detailModal").classList.remove("hidden")}
 function closeDetail(){$("detailModal").classList.add("hidden")}
 function cycleSort(){sortMode=sortMode==="new"?"cheap":sortMode==="cheap"?"expensive":"new";showToast(sortMode==="new"?"Сначала новые":sortMode==="cheap"?"Сначала дешевле":"Сначала дороже");renderProducts()}
 function resetFilters(){category="all";$("search").value="";document.querySelectorAll(".cat").forEach(x=>x.classList.toggle("active",x.dataset.category==="all"));sortMode="new";renderProducts()}
