@@ -87,6 +87,48 @@ class ProductIn(BaseModel):
 def startup():
     init_db()
 
+
+
+# ShuzaGram Bot API integration. Keep this token separate from SHUZA_TOKEN,
+# which is used to validate Telegram WebApp initData.
+import urllib.request
+import urllib.error
+
+SHUZAGRAM_BOT_TOKEN = os.getenv("SHUZAGRAM_BOT_TOKEN", "")
+
+def shuzagram_bot_call(method: str, params=None):
+    if not SHUZAGRAM_BOT_TOKEN:
+        raise HTTPException(503, "На сервере не задан SHUZAGRAM_BOT_TOKEN")
+    url = f"https://api.shuzagram.com/bot{SHUZAGRAM_BOT_TOKEN}/{method}"
+    data = None
+    if params:
+        from urllib.parse import urlencode
+        data = urlencode(params).encode()
+    request = urllib.request.Request(url, data=data, method="POST" if data else "GET")
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        try:
+            payload = json.loads(exc.read().decode("utf-8"))
+            raise HTTPException(exc.code, payload.get("description", "Ошибка ShuzaGram API"))
+        except json.JSONDecodeError:
+            raise HTTPException(502, "ShuzaGram API вернул ошибку")
+    except Exception:
+        raise HTTPException(502, "Не удалось связаться с ShuzaGram API")
+    if not payload.get("ok"):
+        raise HTTPException(502, payload.get("description", "Ошибка ShuzaGram API"))
+    return payload.get("result")
+
+@app.get("/api/shuzagram/bot")
+def shuzagram_bot_info(user=Depends(admin_user)):
+    return shuzagram_bot_call("getMe")
+
+@app.get("/api/shuzagram/gifts")
+def shuzagram_available_gifts(user=Depends(current_user)):
+    # This is the bot's available-gifts catalog, not the user's personal NFT inventory.
+    return shuzagram_bot_call("getAvailableGifts")
+
 @app.get("/health")
 def health():
     return {"ok": True, "service": "PORTALS.COM"}
