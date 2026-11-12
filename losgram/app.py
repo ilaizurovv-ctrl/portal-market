@@ -20,6 +20,7 @@ class CompatRow(dict):
 
 class PgCursor:
  def __init__(self,cur): self.cur=cur; self.lastrowid=None
+ def __iter__(self): return iter(self.fetchall())
  def execute(self,sql,params=()):
   import re
   q=sql.strip()
