@@ -125,7 +125,7 @@ class Msg(BaseModel):
 @app.get("/")
 def home():return FileResponse(BASE/"static"/"index.html")
 @app.get("/health")
-def health():return {"ok":True,"service":"Losgram"}
+def health():return {"ok":True,"service":"Losgram","database":"postgresql" if DATABASE_URL else "sqlite"}
 def twilio_request(path, data):
  sid=os.getenv("TWILIO_ACCOUNT_SID",""); auth=os.getenv("TWILIO_AUTH_TOKEN","")
  service=os.getenv("TWILIO_VERIFY_SERVICE_SID","")
@@ -260,7 +260,7 @@ def list_chats(authorization:Optional[str]=Header(default=None)):
   c.execute("INSERT OR IGNORE INTO chat_members(chat_id,user_id,role,joined_at) VALUES(1,?,'member',?)",(u["id"],int(time.time())))
   rows=c.execute("""
    SELECT ch.id,ch.kind,ch.title,ch.username,ch.owner_id,ch.is_public,
-    COALESCE(cm.role,'member') AS role,
+    COALESCE(cm.role,'member') AS role, (cm.user_id IS NOT NULL) AS is_member,
     (SELECT body FROM chat_messages WHERE chat_id=ch.id ORDER BY id DESC LIMIT 1) AS last_message,
     (SELECT created_at FROM chat_messages WHERE chat_id=ch.id ORDER BY id DESC LIMIT 1) AS last_at
    FROM chats ch LEFT JOIN chat_members cm ON cm.chat_id=ch.id AND cm.user_id=?
