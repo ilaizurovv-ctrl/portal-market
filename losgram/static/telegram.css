@@ -86,3 +86,33 @@
  .archive-active .archive-icon{background:#2b8bd8;color:white}
  .archive-row{cursor:pointer}
 }
+
+/* Main screen: Telegram-inspired mobile chat list */
+@media(max-width:650px){
+ .sidehead{height:60px;display:grid;grid-template-columns:42px 1fr 42px;gap:12px;padding:7px 14px;align-items:center}
+ .sidehead h2{font-size:21px;font-weight:650;letter-spacing:0;text-align:left}
+ .sidehead .icon{width:40px;height:40px;border-radius:50%;background:transparent;color:#aeb7c2;font-size:22px}
+ .sidehead .menu-toggle{font-size:20px}
+ .search{height:42px;margin:3px 12px 10px;padding:0 16px;border-radius:22px;background:#202b36;color:#dce3eb;font-size:15px}
+ .tabs{padding:0 12px 9px;gap:6px;border:0}
+ .tab{padding:7px 15px;border-radius:18px;background:transparent;color:#9ba9b8;font-size:14px}
+ .tab.active{background:#263b4e;color:#70b7f5}
+ .archive-row{min-height:68px;padding:8px 15px;border-bottom:1px solid #202b35}
+ .archive-icon{width:48px;height:48px;background:#263b4e;color:#75baf3;font-size:22px}
+ .archive-copy b{font-size:15px;font-weight:600}
+ .archive-copy small{font-size:12px}
+ .list{padding:0 4px 14px}
+ .person{min-height:72px;padding:8px 10px 8px 9px;gap:11px;border-bottom:1px solid #1c2731}
+ .avatar{width:52px;height:52px;background:#315a78;font-size:18px}
+ .name{font-size:15px;font-weight:600;color:#f2f5f8}
+ .preview{font-size:13px;color:#94a3b2;margin-top:3px}
+ .chat-menu{color:#8091a2}
+ .mobile-compose{right:18px;bottom:94px;width:56px;height:56px;background:#3390ec;box-shadow:0 3px 12px #0008}
+ .rail{background:#17212b;border-top:1px solid #263440}
+ .rail .nav{color:#8999a8;background:transparent}
+ .rail .nav.active{color:#5eaff2;background:transparent}
+ .rail .nav.active:after{color:#5eaff2}
+ .rail .nav:after{color:#8999a8}
+ .side{background:#101820}
+ .app{background:#101820}
+}
