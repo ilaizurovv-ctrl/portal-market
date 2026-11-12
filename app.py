@@ -141,8 +141,8 @@ async def shuzagram_webhook(request: Request):
                 "text": f"✅ Заявка на вывод №{request_id} отправлена администрации. Мы свяжемся с вами."
             })
             admin_text = (
-                f"💸 Новая заявка на вывод №{request_id}\\n"
-                f"Пользователь: @{username} (ID: {user_id})\\n"
+                f"💸 Новая заявка на вывод №{request_id}\n"
+                f"Пользователь: @{username} (ID: {user_id})\n"
                 f"Статус: ожидает рассмотрения"
             )
             for admin_id in ADMIN_IDS:
@@ -154,12 +154,13 @@ async def shuzagram_webhook(request: Request):
     if chat.get("id") and text_value.split(" ", 1)[0].split("@", 1)[0] == "/start":
         shuzagram_bot_call("sendMessage", {
             "chat_id": chat["id"],
-            "text": "Добро пожаловать в PORTALS.COM! 🎁\\nВыберите действие:",
+            "text": "Добро пожаловать в PORTALS.COM! 🎁\nВыберите действие:",
             "reply_markup": {
                 "inline_keyboard": [
                     [{"text": "🚀 Открыть PORTALS.COM", "url": "https://portal-market.onrender.com"}],
                     [{"text": "➕ Пополнить", "url": "https://shuzagram.com/PortalsPlayer"}],
-                    [{"text": "💸 Вывести", "callback_data": "withdraw_request"}]
+                    [{"text": "💸 Вывести", "callback_data": "withdraw_request"}],
+                    [{"text": "🛟 Поддержка", "url": "https://t.me/supportPotral"}]
                 ]
             }
         })
