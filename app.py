@@ -111,59 +111,121 @@ def register_shuzagram_webhook():
             # Keep the app available; webhook can be retried after fixing bot configuration.
             pass
 
+def admin_menu(chat_id):
+    shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": "🛠 Админ-панель", "reply_markup": {"inline_keyboard": [
+        [{"text": "📋 Заявки на вывод", "callback_data": "admin_requests"}],
+        [{"text": "➕ Выдать 🌟", "callback_data": "admin_give"}, {"text": "➖ Забрать 🌟", "callback_data": "admin_take"}],
+        [{"text": "📣 Рассылка", "callback_data": "admin_broadcast"}]
+    ]}})
+
+def remember_bot_user(user):
+    uid = user.get("id")
+    if uid:
+        with db() as con:
+            con.execute("CREATE TABLE IF NOT EXISTS bot_users(user_id INTEGER PRIMARY KEY)")
+            con.execute("INSERT OR IGNORE INTO bot_users(user_id) VALUES(?)", (int(uid),))
+
 @app.post("/shuzagram/webhook")
 async def shuzagram_webhook(request: Request):
     update = await request.json()
     message = update.get("message") or {}
     callback = update.get("callback_query") or {}
-
-    # Inline-button actions
     if callback:
         data = callback.get("data", "")
         sender = callback.get("from") or {}
+        uid = int(sender.get("id") or 0)
+        remember_bot_user(sender)
         chat = (callback.get("message") or {}).get("chat") or {}
-        chat_id = chat.get("id") or sender.get("id")
+        chat_id = chat.get("id") or uid
         if data == "withdraw_request" and chat_id:
-            user_id = int(sender.get("id") or chat_id)
             username = sender.get("username") or sender.get("first_name") or "без имени"
             with db() as con:
-                cur = con.execute(
-                    "INSERT INTO withdrawal_requests(user_id,username,created_at) VALUES(?,?,?)",
-                    (user_id, username, int(time.time()))
-                )
-                request_id = cur.lastrowid
-            shuzagram_bot_call("answerCallbackQuery", {
-                "callback_query_id": callback.get("id"),
-                "text": "Заявка создана"
-            })
-            shuzagram_bot_call("sendMessage", {
-                "chat_id": chat_id,
-                "text": f"✅ Заявка на вывод №{request_id} отправлена администрации. Мы свяжемся с вами."
-            })
-            admin_text = (
-                f"💸 Новая заявка на вывод №{request_id}\n"
-                f"Пользователь: @{username} (ID: {user_id})\n"
-                f"Статус: ожидает рассмотрения"
-            )
+                cur = con.execute("INSERT INTO withdrawal_requests(user_id,username,created_at) VALUES(?,?,?)", (uid, username, int(time.time())))
+                rid = cur.lastrowid
+            shuzagram_bot_call("answerCallbackQuery", {"callback_query_id": callback.get("id"), "text": "Заявка создана"})
+            shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": f"✅ Заявка на вывод №{rid} отправлена администрации."})
             for admin_id in ADMIN_IDS:
-                shuzagram_bot_call("sendMessage", {"chat_id": admin_id, "text": admin_text})
+                shuzagram_bot_call("sendMessage", {"chat_id": admin_id, "text": f"💸 Заявка №{rid} от @{username}, ID: {uid}"})
+        elif uid in ADMIN_IDS and data.startswith("admin_"):
+            shuzagram_bot_call("answerCallbackQuery", {"callback_query_id": callback.get("id"), "text": "Открываю"})
+            if data == "admin_open":
+                admin_menu(chat_id)
+            elif data == "admin_requests":
+                with db() as con:
+                    rows = con.execute("SELECT id,user_id,username FROM withdrawal_requests WHERE status='pending' ORDER BY id DESC LIMIT 30").fetchall()
+                if not rows:
+                    shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": "📭 Заявок нет."})
+                for row in rows:
+                    shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": f"Заявка №{row['id']} от @{row['username']} (ID {row['user_id']})", "reply_markup": {"inline_keyboard": [[{"text": "✅ Одобрить", "callback_data": f"admin_ok_{row['id']}"}, {"text": "❌ Отклонить", "callback_data": f"admin_no_{row['id']}"}]]}})
+            elif data in ("admin_give", "admin_take", "admin_broadcast"):
+                action = data.replace("admin_", "")
+                with db() as con:
+                    con.execute("CREATE TABLE IF NOT EXISTS admin_states(admin_id INTEGER PRIMARY KEY, action TEXT NOT NULL)")
+                    con.execute("INSERT OR REPLACE INTO admin_states(admin_id,action) VALUES(?,?)", (uid, action))
+                prompt = "Отправь ID пользователя и количество 🌟 через пробел." if action in ("give", "take") else "Отправь текст рассылки одним сообщением."
+                shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": prompt})
+            elif data.startswith(("admin_ok_", "admin_no_")):
+                approve = data.startswith("admin_ok_")
+                rid = int(data.rsplit("_", 1)[1])
+                with db() as con:
+                    row = con.execute("SELECT user_id,status FROM withdrawal_requests WHERE id=?", (rid,)).fetchone()
+                    if row and row["status"] == "pending":
+                        con.execute("UPDATE withdrawal_requests SET status=? WHERE id=?", ("approved" if approve else "rejected", rid))
+                shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": f"Заявка №{rid}: {'одобрена' if approve else 'отклонена'}."})
         return {"ok": True}
-
     chat = message.get("chat") or {}
+    sender = message.get("from") or {}
+    uid = int(sender.get("id") or 0)
+    remember_bot_user(sender)
+    chat_id = chat.get("id")
     text_value = (message.get("text") or "").strip()
-    if chat.get("id") and text_value.split(" ", 1)[0].split("@", 1)[0] == "/start":
-        shuzagram_bot_call("sendMessage", {
-            "chat_id": chat["id"],
-            "text": "Добро пожаловать в PORTALS.COM! 🎁\nВыберите действие:",
-            "reply_markup": {
-                "inline_keyboard": [
-                    [{"text": "🚀 Открыть PORTALS.COM", "url": "https://portal-market.onrender.com"}],
-                    [{"text": "➕ Пополнить", "url": "https://shuzagram.com/PortalsPlayer"}],
-                    [{"text": "💸 Вывести", "callback_data": "withdraw_request"}],
-                    [{"text": "🛟 Поддержка", "url": "https://shuzagram.com/supprotPotral"}]
-                ]
-            }
-        })
+    if chat_id and uid in ADMIN_IDS:
+        with db() as con:
+            con.execute("CREATE TABLE IF NOT EXISTS admin_states(admin_id INTEGER PRIMARY KEY, action TEXT NOT NULL)")
+            state = con.execute("SELECT action FROM admin_states WHERE admin_id=?", (uid,)).fetchone()
+        if state:
+            action = state["action"]
+            if action in ("give", "take"):
+                parts = text_value.split()
+                if len(parts) == 2 and all(p.isdigit() for p in parts) and int(parts[1]) > 0:
+                    target, amount = map(int, parts)
+                    with db() as con:
+                        con.execute("CREATE TABLE IF NOT EXISTS star_balances(user_id INTEGER PRIMARY KEY, stars INTEGER NOT NULL DEFAULT 0)")
+                        con.execute("INSERT OR IGNORE INTO star_balances(user_id,stars) VALUES(?,0)", (target,))
+                        delta = amount if action == "give" else -amount
+                        con.execute("UPDATE star_balances SET stars=MAX(0,stars+?) WHERE user_id=?", (delta,target))
+                        balance = con.execute("SELECT stars FROM star_balances WHERE user_id=?", (target,)).fetchone()["stars"]
+                        con.execute("DELETE FROM admin_states WHERE admin_id=?", (uid,))
+                    shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": f"Баланс пользователя {target}: 🌟 {balance}. Это внутренний баланс бота."})
+                else:
+                    shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": "Формат: ID количество"})
+                return {"ok": True}
+            if action == "broadcast":
+                with db() as con:
+                    targets = [r["user_id"] for r in con.execute("SELECT user_id FROM bot_users").fetchall()]
+                    con.execute("DELETE FROM admin_states WHERE admin_id=?", (uid,))
+                sent = failed = 0
+                for target in targets:
+                    try:
+                        shuzagram_bot_call("sendMessage", {"chat_id": target, "text": text_value})
+                        sent += 1
+                    except Exception:
+                        failed += 1
+                shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": f"Рассылка завершена. Успешно: {sent}, ошибок: {failed}."})
+                return {"ok": True}
+    command = text_value.split(" ", 1)[0].split("@", 1)[0]
+    if chat_id and uid in ADMIN_IDS and command == "/admin":
+        admin_menu(chat_id)
+    elif chat_id and command == "/start":
+        keyboard = [
+            [{"text": "🚀 Открыть PORTALS.COM", "url": "https://portal-market.onrender.com"}],
+            [{"text": "➕ Пополнить", "url": "https://shuzagram.com/PortalsPlayer"}],
+            [{"text": "💸 Вывести", "callback_data": "withdraw_request"}],
+            [{"text": "🛟 Поддержка", "url": "https://shuzagram.com/supprotPotral"}]
+        ]
+        if uid in ADMIN_IDS:
+            keyboard.append([{"text": "🛠 Админ-панель", "callback_data": "admin_open"}])
+        shuzagram_bot_call("sendMessage", {"chat_id": chat_id, "text": "Добро пожаловать в PORTALS.COM! 🎁\nВыберите действие:", "reply_markup": {"inline_keyboard": keyboard}})
     return {"ok": True}
 
 
