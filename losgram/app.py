@@ -122,7 +122,7 @@ class Msg(BaseModel):
  recipient:str=Field(min_length=3,max_length=24)
  body:str=Field(min_length=1,max_length=4000)
 @app.get("/")
-def home():return FileResponse(BASE/"static"/"index.html")
+def home():return FileResponse(BASE/"static"/"index.html",headers={"Cache-Control":"no-store, no-cache, must-revalidate, max-age=0","Pragma":"no-cache","Expires":"0"})
 @app.get("/health")
 def health():return {"ok":True,"service":"Losgram","database":"postgresql" if DATABASE_URL else "sqlite"}
 def twilio_request(path, data):
